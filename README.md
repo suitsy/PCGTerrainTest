@@ -14,4 +14,13 @@ https://www.unrealengine.com/marketplace/en-US/product/pcg-river-biome-generator
 
 Ghost Town Vol6 Road Generator
 https://www.unrealengine.com/marketplace/en-US/product/ghost-town-vol-6-road-generator
-1) 
+1) Add plugin from market place to PCGTerrainTest project
+2) Load PCGTerrainTest project and move the Ghost_Town_VOL6 folder to /Content/Assets/
+3) If any folders from Ghost_Town_VOL6 left in /Content/ delete them
+
+
+NW Auto Material
+https://www.unrealengine.com/marketplace/en-US/product/mw-auto-material
+1) Add plugin from market place to PCGTerrainTest project
+2) Load PCGTerrainTest project and move the MWAutoMaterial folder to /Content/Assets/
+3) If any folders from MWAutoMaterial left in /Content/ delete them
