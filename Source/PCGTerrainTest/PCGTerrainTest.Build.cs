@@ -8,9 +8,30 @@ public class PCGTerrainTest : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
+		PublicDependencyModuleNames.AddRange(new string[]
+		{
+			"Core",
+			"CoreUObject",
+			"Engine",
+			"InputCore",
+			"UMG",
+			"AIModule",
+			"NetCore"
+		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] {  });
+		PrivateDependencyModuleNames.AddRange(new string[]
+		{
+			"RTSCore",
+			"RTSCharacter",
+			"RTSEntities",
+			"RTSPlayer",
+			"RTSTeams", 
+			"RTSEquipment",
+			"ModularGameplayActors",
+			"CommonGame",
+			"CommonUI",
+			"RogueQuery"
+		});
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

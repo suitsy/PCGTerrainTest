@@ -65,3 +65,6 @@ Content/Characters/
 Content/ThirdPerson/
 Content/Assets/
 Content/EuropeanBeech/
+Plugins/RTSCharacter/Content/Assets
+Plugins/RTSEquipment/Content/Assets
+Plugins/RTSVehicles/Content/Assets

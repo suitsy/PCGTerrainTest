@@ -1,0 +1,33 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "RTSEquipment",
+	"Description": "RTS Equipment and Weapons",
+	"Category": "Other",
+	"CreatedBy": "Rogue Entity",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "RTSEquipment",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"RTSCore"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "RTSCore",
+			"Enabled": true
+		}
+	]
+}

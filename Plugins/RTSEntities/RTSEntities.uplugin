@@ -1,0 +1,55 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "RTSEntities",
+	"Description": "RTS Entities",
+	"Category": "Other",
+	"CreatedBy": "Rogue Entity",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "RTSEntities",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"AIModule",
+				"UMG",
+				"Engine",
+				"NavigationSystem",
+				"RTSCore",
+				"RTSAi",
+				"RTSEquipment"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "RTSCore",
+			"Enabled": true
+		},
+		{
+			"Name": "RTSAi",
+			"Enabled": true
+		},
+		{
+			"Name": "RTSEquipment",
+			"Enabled": true
+		},
+		{
+			"Name": "RogueCover",
+			"Enabled": true
+		},
+		{
+			"Name": "RogueRVO",
+			"Enabled": true
+		}
+	]
+}

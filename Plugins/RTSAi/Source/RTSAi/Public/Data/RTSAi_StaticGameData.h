@@ -1,0 +1,17 @@
+#pragma once
+
+
+// AI blackboard data types
+#define RTS_DATA_AI_BLACKBOARD_VALUE_NAVSTATE			FName(TEXT("NavigationState"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_BEHAVESTATE		FName(TEXT("BehaviourState"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_CONDSTATE			FName(TEXT("ConditionState"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_SPEEDSTATE			FName(TEXT("SpeedState"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_POSTURESTATE		FName(TEXT("PostureState"))
+
+#define RTS_DATA_AI_BLACKBOARD_VALUE_TARGETOBJECT		FName(TEXT("TargetObject"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_CANFIRE			FName(TEXT("CanFire"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_LASTKNOWNLOC		FName(TEXT("TargetLastKnownLocation"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_AMMOSTATE			FName(TEXT("AmmunitionState"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_COVERSTATE			FName(TEXT("CoverState"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_WPLOC				FName(TEXT("CurrentWaypointLocation"))
+#define RTS_DATA_AI_BLACKBOARD_VALUE_DESTLOC			FName(TEXT("DestinationLocation"))
