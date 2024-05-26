@@ -18,6 +18,8 @@
 #include "Framework/Data/RTSEntities_GroupDataAsset.h"
 #include "Framework/Debug/RTSEntities_Debug.h"
 #include "Framework/Debug/UI/RTSEntities_DebugSelected.h"
+#include "Framework/Entities/Components/RTSEntities_MarkerComponent.h"
+#include "Framework/Interfaces/RTSCore_EntityInterface.h"
 #include "Framework/Interfaces/RTSCore_EquipmentManagerInterface.h"
 #include "Framework/Interfaces/RTSCore_InventoryInterface.h"
 #include "Framework/Interfaces/RTSCore_TeamInterface.h"
@@ -1211,8 +1213,8 @@ void ARTSEntities_PlayerController::OnQueryEntityPositions(const FRogueQueryInst
 						FRTSEntities_InitialisationData EntityInitData = FRTSEntities_InitialisationData(
 							NewActor,
 							GroupData->Members[i],
-							EntityData->bUseDecal,
-							EntityData->DecalSizeModifier,
+							EntityData->SelectionMarkerType,
+							EntityData->SelectionMarkerRadius,
 							Group,
 							GroupData->DefaultFormation
 						);
@@ -1370,8 +1372,8 @@ void ARTSEntities_PlayerController::CreateGroupEntities(const FPrimaryAssetId& G
 								FRTSEntities_InitialisationData EntityInitData = FRTSEntities_InitialisationData(
 									NewActor,
 									GroupData->Members[i],
-									EntityData->bUseDecal,
-									EntityData->DecalSizeModifier,
+									EntityData->SelectionMarkerType,
+									EntityData->SelectionMarkerRadius,
 									NewGroup,
 									GroupData->DefaultFormation
 								);
@@ -1439,7 +1441,7 @@ void ARTSEntities_PlayerController::GenerateEntitySpawnLocation(const URTSEntiti
 				if(CurrentEntitySpawnSpacing.IsValidIndex(OffsetIndex))
 				{
 					// Add entity spacing to current spacing for this offset
-					CurrentEntitySpawnSpacing[OffsetIndex] += OffsetIndex == 0 ? EntityData->Spacing + 500.f * (Iteration + MemberIndex) : -EntityData->Spacing + 500.f * (Iteration + MemberIndex);
+					CurrentEntitySpawnSpacing[OffsetIndex] += OffsetIndex == 0 ? EntityData->MinimumSpacing + 500.f * (Iteration + MemberIndex) : -EntityData->MinimumSpacing + 500.f * (Iteration + MemberIndex);
 
 					// Create new location using the new entity offset on the X
 					FVector EntityLocation = StartGroupSpawnLocation;
@@ -1465,12 +1467,12 @@ void ARTSEntities_PlayerController::GetGroupSpawnSpaceRequirement(const URTSEnti
 			// Get the data class from the asset id for this entity	
 			if(const URTSEntities_EntityDataAsset* EntityData = Cast<URTSEntities_EntityDataAsset>(AssetManager->GetPrimaryAssetObject(EntityConfigData[i].EntityData)))
 			{
-				AreaSpacing.Y += EntityData->Spacing + GroupData->DefaultEntitySpacing;
+				AreaSpacing.Y += EntityData->MinimumSpacing + GroupData->DefaultEntitySpacing;
 
 				// Assign largest spacing requirement to to area spacing X value
-				if(EntityData->Spacing + GroupData->DefaultEntitySpacing > AreaSpacing.X)
+				if(EntityData->MinimumSpacing + GroupData->DefaultEntitySpacing > AreaSpacing.X)
 				{
-					AreaSpacing.X = EntityData->Spacing + GroupData->DefaultEntitySpacing;
+					AreaSpacing.X = EntityData->MinimumSpacing + GroupData->DefaultEntitySpacing;
 				}
 			}
 		}
@@ -1491,18 +1493,12 @@ void ARTSEntities_PlayerController::CreateEntityComponents(const FRTSEntities_In
 	
 	if(URTSEntities_Entity* EntityComponent = NewObject<URTSEntities_Entity>(EntityInitData.Entity, TEXT("EntityComponent")))
 	{
-		//EntityInitData.Entity->AddComponent(FName(TEXT("EntityComponent")), false,  FTransform::Identity, EntityComponent);
 		EntityComponent->Initialise(this, EntityInitData);
 		EntityComponent->RegisterComponent();		
 		EntityInitData.Entity->AddInstanceComponent(EntityComponent);
-	}
-
-	if(EntityInitData.bUseDecal)
-	{		
-		if(URTSEntities_Entity* EntityComponent = URTSEntities_Entity::FindEntityComponent(EntityInitData.Entity))
-		{
-			EntityComponent->CreateDecalComponent();
-		}
+		
+		// Create selection component
+		EntityComponent->CreateMarkerComponents();
 	}
 	
 	CreateEquipmentComponent(EntityInitData);

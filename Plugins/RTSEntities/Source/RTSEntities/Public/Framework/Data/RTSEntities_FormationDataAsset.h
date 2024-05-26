@@ -50,11 +50,11 @@ public:
 	void CreateFormation(FRTSEntities_Navigation& Navigation, const TArray<FRTSEntities_PlayerSelection>& Selections) const;
 
 protected:
-	static float GetSelectedAverageSpacing(const FRTSEntities_Navigation& Navigation, const TArray<FRTSEntities_PlayerSelection>& Selections); 
-	static float GetSelectionSpacing(const FRTSEntities_PlayerSelection& Selection, const float CommandEntitySpacing);
+	static void GetSelectedAverageSpacing(const FRTSEntities_Navigation& Navigation, const TArray<FRTSEntities_PlayerSelection>& Selections, float& EntitiesSpacing); 
+	static float GetSelectionSpacing(const FRTSEntities_PlayerSelection& Selection, const float EntitySpacing);
 	static float GetEntitiesAverageSpacing(const TArray<AActor*>& Entities, const float Spacing);
-	static float GetEntitySpacing(const AActor* Entity);
-	void CreateFormationPositions(FRTSEntities_Navigation& Navigation, const TArray<FRTSEntities_PlayerSelection>& Selections, const float Spacing) const;
+	static float GetEntityReqSpacing(const AActor* Entity);
+	void CreateFormationPositions(FRTSEntities_Navigation& Navigation, const TArray<FRTSEntities_PlayerSelection>& Selections, const float EntitiesSpacing) const;
 	static bool NextPositionPermutation(int* Array, int Size);
 	static void AssignSelectionPositions(FRTSEntities_Navigation& Navigation, const TArray<FRTSEntities_PlayerSelection>& Selections);
 	void UpdateSelectionAssignedPositions(FRTSEntities_Navigation& Navigation) const;

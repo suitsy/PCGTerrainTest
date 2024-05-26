@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Framework/Data/RTSCore_DataTypes.h"
 #include "UObject/Interface.h"
 #include "RTSCore_EntityInterface.generated.h"
 
@@ -28,4 +29,6 @@ public:
 	virtual FVector GetSightSocketLocation() const = 0;
 	virtual USceneComponent* GetEntityMesh() const = 0;
 	virtual UShapeComponent* GetCollisionBox() const = 0;
+	virtual void Crouch() = 0;
+	virtual void Stand() = 0;
 };

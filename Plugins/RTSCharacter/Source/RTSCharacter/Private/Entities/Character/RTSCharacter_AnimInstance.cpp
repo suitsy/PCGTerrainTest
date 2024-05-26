@@ -102,6 +102,7 @@ void URTSCharacter_AnimInstance::NativeThreadSafeUpdateAnimation(float DeltaSeco
 			// Set current states
 			BehaviourState = AiStateInterface->GetState(ERTSCore_StateCategory::Behaviour);
 			SpeedState = AiStateInterface->GetState(ERTSCore_StateCategory::Speed);
+			StanceState = AiStateInterface->GetState(ERTSCore_StateCategory::Stance);
 			ConditionState = AiStateInterface->GetState(ERTSCore_StateCategory::Condition);
 			PostureState = AiStateInterface->GetState(ERTSCore_StateCategory::Posture);
 			NavigationState = AiStateInterface->GetState(ERTSCore_StateCategory::Navigation);

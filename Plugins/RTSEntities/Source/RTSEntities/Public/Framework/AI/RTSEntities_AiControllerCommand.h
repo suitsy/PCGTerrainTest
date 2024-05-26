@@ -6,7 +6,7 @@
 #include "RTSEntities_AiControllerBase.h"
 #include "RTSEntities_AiControllerCommand.generated.h"
 
-class ARTSEntities_Decal;
+class ARTSEntities_MarkerActor;
 class URTSEntities_NavigateTo;
 class USplineComponent;
 class UNavigationSystemV1;
@@ -29,6 +29,7 @@ protected:
 	/** Ai Behaviour **/
 protected:
 	void BehaviourUpdate_NavigationState();
+	void BehaviourUpdate_BehaviourState(const ERTSCore_BehaviourState& StateRequest);
 	
 	//** End Ai Behaviour **/
 	
@@ -40,7 +41,6 @@ public:
 	virtual void ExecuteCommand(URTSEntities_Command* Command);
 	virtual void ChangeFormation(const FPrimaryAssetId NewFormation);
 	virtual void AbortNavigation();
-	virtual void PreviewNavigation(const FRTSEntities_EntityPosition& PreviewPosition);	
 	
 protected:	
 	virtual void CompleteCurrentCommand(const ERTSEntities_CommandStatus Status);
@@ -68,8 +68,7 @@ protected:
 	virtual void CalculateOffsetLocation(FVector& ReferencePoint, const FRotator& Rotation, FVector& OffsetLocation, const FVector& Offset);
 	virtual int32 GetCurrentDestinationIndex();
 	virtual FVector GetCurrentDestination();
-	virtual void SetDestination();
-	virtual void SetDestination(const FVector NewDestination) { CurrentDestination = NewDestination; }
+	virtual void SetDestination(); 
 
 	// Waypoints
 	virtual void GenerateWaypoints(TArray<FVector>& EntityPathPoints);
@@ -102,9 +101,6 @@ protected:
 
 	UPROPERTY()
 	FRTSEntities_EntityPosition EntityPosition;
-
-	UPROPERTY()
-	FVector CurrentDestination;
 
 	UPROPERTY()
 	TArray<FRTSEntities_NavigationWaypoint> Waypoints;

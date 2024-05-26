@@ -39,11 +39,6 @@ void ARTSEntities_AiControllerCommand::Tick(float DeltaTime)
 void ARTSEntities_AiControllerCommand::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if(GetPawn())
-	{
-		CurrentDestination = GetPawn()->GetActorLocation();
-	}	
 }
 
 void ARTSEntities_AiControllerCommand::OnPossess(APawn* InPawn)
@@ -71,6 +66,19 @@ void ARTSEntities_AiControllerCommand::BehaviourUpdate_NavigationState()
 	}
 }
 
+void ARTSEntities_AiControllerCommand::BehaviourUpdate_BehaviourState(const ERTSCore_BehaviourState& StateRequest)
+{
+	if(GetBlackboardComponent())
+	{		
+		SetState(ERTSCore_StateCategory::Behaviour, static_cast<int32>(StateRequest));
+		
+		if(HasEntityComponent())
+		{
+			EntityComponent->OnBehaviourStateChange(StateRequest);
+		}		
+	}
+}
+
 bool ARTSEntities_AiControllerCommand::IsActiveCommand(const FGuid Id) const
 {
 	return ActiveCommand != nullptr && ActiveCommand->GetId() == Id;
@@ -88,21 +96,27 @@ void ARTSEntities_AiControllerCommand::ExecuteCommand(URTSEntities_Command* Comm
 
 		// Assign new command as active
 		ActiveCommand = Command;
-		
-		// Check command is a navigation command
-		if(const URTSEntities_NavigateTo* NavCommand = Cast<URTSEntities_NavigateTo>(Command))
-		{		
-			// Assign current navigation data to variable on server
-			NavigationData = NavCommand->GetNavigation();
-			
-			if(NavigationData.IsValid())
-			{
-				ExecuteNavigation();
-			}
-		}
-		else
+
+		if(ActiveCommand != nullptr)
 		{
-			NavigationData = FRTSEntities_Navigation();
+			// Update behaviour
+			BehaviourUpdate_BehaviourState(ActiveCommand->Data.BehaviourState);
+			
+			// Check command is a navigation command
+			if(const URTSEntities_NavigateTo* NavCommand = Cast<URTSEntities_NavigateTo>(Command))
+			{		
+				// Assign current navigation data to variable on server
+				NavigationData = NavCommand->GetNavigation();
+			
+				if(NavigationData.IsValid())
+				{
+					ExecuteNavigation();
+				}
+			}
+			else
+			{
+				NavigationData = FRTSEntities_Navigation();
+			}
 		}
 	}
 }
@@ -147,20 +161,6 @@ void ARTSEntities_AiControllerCommand::AbortNavigation()
 			CreateTransitionWaypoint(ERTSEntities_WaypointType::Destination);
 		}
 	}	
-}
-
-void ARTSEntities_AiControllerCommand::PreviewNavigation(const FRTSEntities_EntityPosition& PreviewPosition)
-{	
-	if(HasEntityComponent())
-	{
-		if(PreviewPosition.IsValid())
-		{
-			EntityComponent->HandleDestinationDecal(true, true, EntityPosition.Destination, EntityPosition.Rotation, ERTSEntities_CommandStatus::Preview);
-			return;
-		}
-	}	
-
-	EntityComponent->HandleDestinationDecal(false, true);
 }
 
 void ARTSEntities_AiControllerCommand::CompleteCurrentCommand(const ERTSEntities_CommandStatus Status)
@@ -226,12 +226,12 @@ void ARTSEntities_AiControllerCommand::ExecuteNavigation()
 		
 						if(ActiveCommand != nullptr)
 						{
-							EntityComponent->HandleDestinationDecal(true, false, EntityPosition.Destination, EntityPosition.Rotation, ActiveCommand->GetStatus());
+							EntityComponent->HandleDestinationMarker(true, EntityPosition, ActiveCommand->GetStatus());
 							return;
 						}					
 					}
 					
-					EntityComponent->HandleDestinationDecal(false, false);
+					EntityComponent->HandleDestinationMarker(false);
 					return;
 				}
 			}				
@@ -515,7 +515,11 @@ void ARTSEntities_AiControllerCommand::SetDestination()
 	{
 		if(Waypoints[i].WaypointType == ERTSEntities_WaypointType::Destination)
 		{
-			CurrentDestination = Waypoints[i].Location;
+			if(HasEntityComponent())
+			{
+				EntityComponent->SetNavigationDestination(Waypoints[i].Location);
+			}
+			
 			return;
 		}
 	}
@@ -866,7 +870,8 @@ void ARTSEntities_AiControllerCommand::HandleWaypointNavigationComplete()
 		ResetWaypoints();
 
 		// Reset Entity Position
-		EntityComponent->HandleDestinationDecal(false, false);
+		EntityComponent->SetNavigationDestination(GetPawn()->GetActorLocation());
+		EntityComponent->SetStanceState(ERTSCore_StanceState::Crouch);
 		
 		CompleteCurrentCommand(ERTSEntities_CommandStatus::Completed);
 	}
@@ -885,6 +890,13 @@ void ARTSEntities_AiControllerCommand::HandleWaypointsUpdated()
 	{
 		CreateSplinePath();
 		SetDestination();
+	}
+	else
+	{
+		if(NavigationSpline)
+		{
+			NavigationSpline->ClearSplinePoints();
+		}
 	}
 
 	// Update navigation state and current waypoint

@@ -136,10 +136,10 @@ protected:
 	UPROPERTY()
 	bool bIsObservingTarget;
 
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	float CurrentUprightAmount = 1.f;
 
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	float UprightAmount = 1.f;
 
 	UPROPERTY()
@@ -181,13 +181,13 @@ public:
 	virtual FVector GetSightSocketLocation() const override;
 	virtual USceneComponent* GetEntityMesh() const override;	
 	virtual UShapeComponent* GetCollisionBox() const override;
+	virtual void Crouch() override { UprightAmount = 0.f; }
+	virtual void Stand() override { UprightAmount = 1.f - FMath::RandRange(-0.1f, 0.f); }
 	
 	/** Ai Interface **/
 public:
 	virtual void SetObservationLocation(const FVector& Location) override;	
 	virtual void PlayMontage(UAnimMontage* MontageToPlay) override;
-	virtual void Crouch() override { UprightAmount = 0.f; }
-	virtual void Stand() override { UprightAmount = 1.f - FMath::RandRange(-0.1f, 0.f); }
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

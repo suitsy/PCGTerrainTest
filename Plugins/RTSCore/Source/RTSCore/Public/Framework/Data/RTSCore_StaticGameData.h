@@ -4,8 +4,8 @@
 
 
 // Trace used for terrain finding, will pass through all assets to the terrain
-#define RTS_TRACE_CHANNEL_TERRAIN				ECC_GameTraceChannel5
-#define RTS_TRACE_CHANNEL_SELECTABLE			ECC_GameTraceChannel4
+#define RTS_TRACE_CHANNEL_TERRAIN				ECC_GameTraceChannel1
+#define RTS_TRACE_CHANNEL_SELECTABLE			ECC_GameTraceChannel2
 #define RTS_TRACE_CHANNEL_ENTITIES				ECC_GameTraceChannel3
 
 

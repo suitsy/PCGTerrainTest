@@ -6,6 +6,7 @@
 #define RTS_BLACKBOARD_VALUE_BEHAVESTATE		FName(TEXT("BehaviourState"))
 #define RTS_BLACKBOARD_VALUE_CONDSTATE			FName(TEXT("ConditionState"))
 #define RTS_BLACKBOARD_VALUE_SPEEDSTATE			FName(TEXT("SpeedState"))
+#define RTS_BLACKBOARD_VALUE_STANCESTATE		FName(TEXT("StanceState"))
 #define RTS_BLACKBOARD_VALUE_POSTURESTATE		FName(TEXT("PostureState"))
 #define RTS_BLACKBOARD_VALUE_AMMOSTATE			FName(TEXT("AmmunitionState"))
 

@@ -7,6 +7,7 @@
 #include "CommandSystem/RTSEntities_Command.h"
 #include "RTSEntities_PlayerControllerCommand.generated.h"
 
+class UNiagaraComponent;
 class URTSEntities_NavigateTo;
 
 UENUM()
@@ -38,6 +39,7 @@ protected:
 
 	// Create command
 	virtual FRTSEntities_ClientCommandData CreateCommandClientData();
+	virtual void AssignCommandModifierData(FRTSEntities_ClientCommandData& ClientCommandData);
 	virtual void AssignCommandLocation();
 	virtual URTSEntities_Command* CreateCommand(const FRTSEntities_ClientCommandData& ClientCommandData);
 	virtual void GetCommandType(ERTSEntities_CommandType& CommandType, uint8& HasNavigation) const;
@@ -67,6 +69,19 @@ protected:
 	virtual void PreviewTimer();
 	virtual void ResetCommandPreview(const FRTSEntities_Navigation& NavData);
 	virtual void PreviewNavigation(const FRTSEntities_Navigation& Navigation, const uint8 ShowPreview = false);
+	virtual void SpawnOrUpdatePreviewMarker(const uint8 ShowPreview, const FRTSEntities_EntityPosition& EntityPosition);
+
+	// Command updates
+	virtual void IssueSpacingChange(const ERTSEntities_SpacingType& ChangeType);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_IssueFormationChange(const float IndexChange);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_IssueSpacingChange(const ERTSEntities_SpacingType& ChangeType);
+
+	UPROPERTY()
+	TMap<AActor*, UNiagaraComponent*> Client_PreviewMarkers;
 
 	UPROPERTY()
 	TArray<URTSEntities_Command*> CommandQueue;

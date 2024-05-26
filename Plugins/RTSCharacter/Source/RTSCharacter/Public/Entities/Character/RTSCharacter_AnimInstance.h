@@ -68,6 +68,9 @@ protected:
 	int32 SpeedState;
 
 	UPROPERTY(BlueprintReadOnly)
+	int32 StanceState;
+
+	UPROPERTY(BlueprintReadOnly)
 	int32 ConditionState;
 
 	UPROPERTY(BlueprintReadOnly)

@@ -2,10 +2,12 @@
 
 
 #include "Framework/Player/RTSEntities_PlayerControllerCommand.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
 #include "CommandSystem/RTSEntities_Command.h"
 #include "CommandSystem/RTSEntities_NavigateTo.h"
 #include "Engine/AssetManager.h"
-#include "Framework/AI/RTSEntities_AiControllerCommand.h"
+#include "Framework/Data/RTSCore_SystemStatics.h"
 #include "Framework/Data/RTSEntities_FormationDataAsset.h"
 #include "Framework/Data/RTSEntities_GroupDataAsset.h"
 #include "Framework/Entities/Components/RTSEntities_Entity.h"
@@ -48,17 +50,68 @@ void ARTSEntities_PlayerControllerCommand::CommandEnd()
 	CommandState = ECommandState::None;
 
 	// Reset preview on command execution
-	ResetCommandPreview(Client_PreviewNavigation);
+	ResetCommandPreview(Client_PreviewNavigationData);
 }
 
 void ARTSEntities_PlayerControllerCommand::WheelMouse(const float Input)
 {
 	Super::WheelMouse(Input);
+	
+	if(!HasSelectedEntities())
+	{
+		return;
+	}	
 
-	if(InputModifierKey == EInputModifierKey::Alt && HasSelectedEntities())
+	/**
+	 *  Shift	- Group Spacing
+	 *  Alt		- Entity Spacing
+	 *  Ctrl	- Formation
+	 *  **/
+	/*switch (InputModifierKey)
+	{
+		case EInputModifierKey::Ctrl:
+			// Change Formation
+			Server_IssueFormationChange(Input);
+			break;
+		case EInputModifierKey::Shift:
+			// Change Group Spacing
+			Server_IssueSpacingChange(ERTSEntities_SpacingType::GroupChange);
+			break;
+	case EInputModifierKey::Alt:
+			// Change Entity Spacing
+			Server_IssueSpacingChange(ERTSEntities_SpacingType::EntityChange);
+			break;
+		case EInputModifierKey::ShiftAlt:
+			// Change entity and group spacing
+			Server_IssueSpacingChange(ERTSEntities_SpacingType::SpacingChangeBoth);
+			break;
+		/*case EInputModifierKey::Space:
+			break;
+		case EInputModifierKey::ShiftCtrl:
+			break;
+		case EInputModifierKey::ShiftSpace:
+			break;
+		case EInputModifierKey::CtrlAlt:
+			break;
+		case EInputModifierKey::CtrlSpace:
+			break;
+		case EInputModifierKey::AltSpace:
+			break;
+		case EInputModifierKey::ShiftCtrlAlt:
+			break;
+		case EInputModifierKey::ShiftCtrlSpace:
+			break;
+		case EInputModifierKey::ShiftAltSpace:
+			break;
+		case EInputModifierKey::CtrlAltSpace:
+			break;#1#
+		default: ;
+	}*/
+	
+	/*if(InputModifierKey == EInputModifierKey::Alt && HasSelectedEntities())
 	{
 		CycleFormation(Input);		
-	}
+	}*/
 }
 
 void ARTSEntities_PlayerControllerCommand::SetPreviewCommand()
@@ -147,8 +200,48 @@ FRTSEntities_ClientCommandData ARTSEntities_PlayerControllerCommand::CreateComma
 	ClientCommandData.SetTargetLocation(Destination);
 	ClientCommandData.SetTargetRotation(Rotation);
 	ClientCommandData.SetSourceLocation(SourceLocation);
+	AssignCommandModifierData(ClientCommandData);
 	
 	return ClientCommandData;
+}
+
+void ARTSEntities_PlayerControllerCommand::AssignCommandModifierData(FRTSEntities_ClientCommandData& ClientCommandData)
+{
+	switch (InputModifierKey)
+	{
+		/* Ctrl cases are used for command queuing
+			case EInputModifierKey::Ctrl:
+			break;
+			case EInputModifierKey::ShiftCtrl:
+			break;
+			case EInputModifierKey::CtrlAlt:	
+			break;
+			case EInputModifierKey::CtrlSpace:
+			break;
+			case EInputModifierKey::Space:
+				 CommandType =  ERTSEntities_CommandType::Cover;
+			break;
+		*/
+		case EInputModifierKey::Shift:
+			ClientCommandData.BehaviourState = ERTSCore_BehaviourState::Combat;
+			break;
+		case EInputModifierKey::Alt:
+			ClientCommandData.BehaviourState = ERTSCore_BehaviourState::Cautious;
+			break;	
+		case EInputModifierKey::ShiftAlt:
+			ClientCommandData.BehaviourState = ERTSCore_BehaviourState::Stealth;
+			break;
+		case EInputModifierKey::ShiftSpace:
+			ClientCommandData.BehaviourState = ERTSCore_BehaviourState::Combat;
+			break;
+		case EInputModifierKey::AltSpace:
+			ClientCommandData.BehaviourState = ERTSCore_BehaviourState::Cautious;
+			break;
+		default:
+			{
+				ClientCommandData.BehaviourState = ERTSCore_BehaviourState::Safe;
+			}			
+	}
 }
 
 void ARTSEntities_PlayerControllerCommand::AssignCommandLocation()
@@ -163,22 +256,28 @@ URTSEntities_Command* ARTSEntities_PlayerControllerCommand::CreateCommand(const 
 	if(HasAuthority() && ClientCommandData.IsValid())
 	{
 		// Get reference to entities settings
-		if(URTSEntities_GroupDataAsset* LeadGroupData = Selected.GetLeadGroup()->GetData())
+		if(Selected.IsValid())
 		{
-			// Get the class for the current requested command type
-			if(const TSoftClassPtr<URTSEntities_Command>* LeadCommandClassPtr = LeadGroupData->Commands.Find(ClientCommandData.CommandType))
+			if(const ARTSEntities_Group* LeadGroup = Selected.GetLeadGroup())
 			{
-				// Create a new command from requested type
-				if(URTSEntities_Command* NewCommand = NewObject<URTSEntities_Command>(this, LeadCommandClassPtr->LoadSynchronous()))
+				if(URTSEntities_GroupDataAsset* LeadGroupData = LeadGroup->GetData())
 				{
-					FRTSEntities_CommandData CommandData = FRTSEntities_CommandData();
-					UpdateCommandData(ClientCommandData, CommandData, Selected);
-					NewCommand->Data = CommandData;
+					// Get the class for the current requested command type
+					if(const TSoftClassPtr<URTSEntities_Command>* LeadCommandClassPtr = LeadGroupData->Commands.Find(ClientCommandData.CommandType))
+					{
+						// Create a new command from requested type
+						if(URTSEntities_Command* NewCommand = NewObject<URTSEntities_Command>(this, LeadCommandClassPtr->LoadSynchronous()))
+						{
+							FRTSEntities_CommandData CommandData = FRTSEntities_CommandData();
+							UpdateCommandData(ClientCommandData, CommandData, Selected);
+							NewCommand->Data = CommandData;
 					
-					return NewCommand;
+							return NewCommand;
+						}
+					}
 				}
 			}
-		}		
+		}	
 	}	
 
 	return nullptr;
@@ -186,7 +285,10 @@ URTSEntities_Command* ARTSEntities_PlayerControllerCommand::CreateCommand(const 
 
 void ARTSEntities_PlayerControllerCommand::GetCommandType(ERTSEntities_CommandType& CommandType, uint8& HasNavigation) const
 {
-	switch (InputModifierKey)
+	CommandType =  ERTSEntities_CommandType::NavigateTo;
+	HasNavigation = true;
+	
+	/*switch (InputModifierKey)
 	{
 	case EInputModifierKey::Ctrl:
 		CommandType =  ERTSEntities_CommandType::NavigateTo;
@@ -202,7 +304,7 @@ void ARTSEntities_PlayerControllerCommand::GetCommandType(ERTSEntities_CommandTy
 		break;
 		/*case EInputModifierKey::Space:
 			 *CommandType =  ERTSEntities_CommandType::Cover;
-			break;*/		
+			break;#1#		
 	case EInputModifierKey::ShiftCtrl:
 		CommandType =  ERTSEntities_CommandType::NavigateToFast;	
 		HasNavigation = true;		
@@ -230,7 +332,7 @@ void ARTSEntities_PlayerControllerCommand::GetCommandType(ERTSEntities_CommandTy
 			CommandType =  ERTSEntities_CommandType::NavigateTo;
 			HasNavigation = true;
 		}			
-	}
+	}*/
 }
 
 void ARTSEntities_PlayerControllerCommand::UpdateCommandData(const FRTSEntities_ClientCommandData& ClientCommandData, FRTSEntities_CommandData& CommandData,
@@ -238,21 +340,15 @@ void ARTSEntities_PlayerControllerCommand::UpdateCommandData(const FRTSEntities_
 {
 	// Assign new command id, if preview assign invalid guid
 	Preview ? CommandData.Id = FGuid() : CommandData.Id = FGuid::NewGuid();
-
-	// Update CommandType
-	CommandData.CommandType = ClientCommandData.CommandType;
-
-	// Update HasNavigation
-	CommandData.HasNavigation = ClientCommandData.HasNavigation;
+	
+	// Assign client data to command
+	CommandData.ApplyClientData(ClientCommandData);
 
 	/** Filter selected based on selections that are able to do the command type
 	 *  Command Data handles assignment of source data based on the selection passed in **/	
 	FRTSEntities_PlayerSelections SelectedCopy = InSelected;
 	ValidateSelections(SelectedCopy, CommandData.CommandType);
 	CommandData.SetSelected(SelectedCopy);
-	
-	// Assign command target data
-	CommandData.TargetTransform = ClientCommandData.TargetTransform;
 	
 	// Assign command target if one is under mouse cursor
 	CommandData.TargetActor = GetHitSelectable(CommandData.TargetTransform.GetLocation());
@@ -376,8 +472,8 @@ void ARTSEntities_PlayerControllerCommand::OnNavigationCreated(const FGuid Id, c
 	}
 	else
 	{
-		Client_PreviewNavigation = Navigation;
-		PreviewNavigation(Client_PreviewNavigation, true);
+		Client_PreviewNavigationData = Navigation;
+		PreviewNavigation(Client_PreviewNavigationData, true);
 		GeneratingPreview = false;
 	}	
 }
@@ -505,8 +601,11 @@ void ARTSEntities_PlayerControllerCommand::PreviewTimerStart()
 
 void ARTSEntities_PlayerControllerCommand::PreviewTimerStop()
 {
-	GetWorldTimerManager().ClearTimer(TimerHandle_Preview);
-	PreviewNavigation(Client_PreviewNavigation, false);
+	if(IsLocalController())
+	{
+		GetWorldTimerManager().ClearTimer(TimerHandle_Preview);
+		PreviewNavigation(Client_PreviewNavigationData, false);
+	}
 }
 
 void ARTSEntities_PlayerControllerCommand::PreviewTimer()
@@ -540,8 +639,25 @@ void ARTSEntities_PlayerControllerCommand::PreviewNavigation(const FRTSEntities_
 	{
 		return;
 	}
-	
+
+	if(ShowPreview > 0)
+	{
+		
+	}
+
 	for (int i = 0; i < Navigation.Positions.Num(); ++i)
+	{
+		for (int j = 0; j < Navigation.Positions[i].EntityPositions.Num(); ++j)
+		{
+			if(URTSEntities_Entity* EntityComponent = URTSEntities_Entity::FindEntityComponent(Navigation.Positions[i].EntityPositions[j].Owner))
+			{
+				EntityComponent->PreviewNavigation(Navigation.Positions[i].EntityPositions[j], ShowPreview);
+			}
+			//SpawnOrUpdatePreviewMarker(ShowPreview, Navigation.Positions[i].EntityPositions[j]);			
+		}
+	}
+	
+	/*for (int i = 0; i < Navigation.Positions.Num(); ++i)
 	{
 		for (int j = 0; j < Navigation.Positions[i].EntityPositions.Num(); ++j)
 		{
@@ -553,5 +669,167 @@ void ARTSEntities_PlayerControllerCommand::PreviewNavigation(const FRTSEntities_
 				}
 			}
 		}
-	}	
+	}*/	
+}
+
+void ARTSEntities_PlayerControllerCommand::SpawnOrUpdatePreviewMarker(const uint8 ShowPreview, const FRTSEntities_EntityPosition& EntityPosition)
+{
+	if(UNiagaraComponent** ExistingMarker = Client_PreviewMarkers.Find(EntityPosition.Owner))
+	{
+		if(UNiagaraComponent* Marker = *ExistingMarker)
+		{
+			if(ShowPreview)
+			{
+				FVector MarkerLocation = EntityPosition.Destination;
+				FVector MarkerNormal = FVector::ZeroVector;
+				URTSCore_SystemStatics::GetTerrainLocationAndNormal(GetWorld(), MarkerLocation, MarkerNormal);
+				Marker->SetVectorParameter(FName(TEXT("Position")), MarkerLocation);
+				Marker->SetVectorParameter(FName(TEXT("Facing")), MarkerNormal);
+			}
+			else
+			{
+				Marker->Deactivate();
+				Marker->UnregisterComponent();
+				Marker->DestroyInstance();
+				Marker->DestroyComponent();
+				Client_PreviewMarkers.Remove(EntityPosition.Owner);
+			}
+		}
+	}
+	else
+	{
+		// Load the Niagara system asset
+		const URTSEntities_Entity* EntityComponent = URTSEntities_Entity::FindEntityComponent(EntityPosition.Owner);
+
+		const TSoftObjectPtr<UNiagaraSystem> SystemTemplate = EntityComponent->GetDestinationNiagaraSystem();
+		if(SystemTemplate.IsValid())
+		{
+			if (UNiagaraSystem* NiagaraSystem = SystemTemplate.LoadSynchronous())
+			{
+				// Spawn the Niagara system at the specified location and rotation
+				if(UNiagaraComponent* Marker = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), NiagaraSystem, EntityPosition.Destination, EntityPosition.Rotation))
+				{
+					Marker->SetVariableMaterial(FName(TEXT("Material")), EntityComponent->GetDestinationMaterial());
+					Marker->SetFloatParameter(FName(TEXT("Size")), EntityComponent->GetSelectionMarkerSize());
+					Marker->SetFloatParameter(FName(TEXT("Height")), 5.f);
+					FVector MarkerLocation = EntityPosition.Destination;
+					FVector MarkerNormal = FVector::ZeroVector;
+					URTSCore_SystemStatics::GetTerrainLocationAndNormal(GetWorld(), MarkerLocation, MarkerNormal);
+					Marker->SetVectorParameter(FName(TEXT("Position")), MarkerLocation);
+					Marker->SetVectorParameter(FName(TEXT("Facing")), MarkerNormal);
+					Client_PreviewMarkers.Add(EntityPosition.Owner, Marker);
+				}
+			}
+		}
+	}
+}
+
+void ARTSEntities_PlayerControllerCommand::IssueSpacingChange(const ERTSEntities_SpacingType& ChangeType)
+{
+	// Check if any of the current selection is navigating	
+	for (int i = 0; i < Selected.Selections.Num(); ++i)
+	{
+		if(const ARTSEntities_Group* Group = Selected.Selections[i].Group)
+		{
+			// Check if the group has an active command or not
+			if(Group->HasActiveCommandFor(Selected.Selections[i].Entities))
+			{
+				
+			}
+			else
+			{
+				
+			}
+		}
+
+		// Get client data
+		
+		// Get a avg source location of the command
+		FVector SourceLocation = FVector::ZeroVector;
+		GetCommandCenterLocation(SourceLocation);
+	
+		FVector MouseLocation = FVector::ZeroVector;
+		GetMousePositionOnTerrain(MouseLocation);	
+
+		// Set location using the mouse location of the command state is None
+		const FVector Destination = CommandState > ECommandState::None ? CommandLocation : MouseLocation;
+	
+		// Get the command rotation at the target location
+		// If mouse dragged set orientation to that rotation, otherwise use the direction to location
+		const FRotator Rotation = (MouseLocation - Destination).Length() > 150.f
+			? FRotationMatrix::MakeFromX(MouseLocation - Destination).Rotator() 
+			: FRotationMatrix::MakeFromX(Destination - SourceLocation).Rotator();
+
+		// Generate client command data for issuing command to server
+		FRTSEntities_ClientCommandData ClientCommandData = FRTSEntities_ClientCommandData(ERTSEntities_CommandType::NavigateTo, true);	
+		ClientCommandData.SetTargetLocation(Destination);
+		ClientCommandData.SetTargetRotation(Rotation);
+		ClientCommandData.SetSourceLocation(SourceLocation);
+		AssignCommandModifierData(ClientCommandData);
+
+
+		// Create command data
+
+
+		// Create navigation data
+
+
+		
+	}
+	// Get the lead selection index of the current selection
+	int32 LeadIndex = 0;
+	GetLeadSelectionIndex(Selected, LeadIndex);
+
+	// Get the lead of the current selection
+	if(Selected.Selections.IsValidIndex(LeadIndex))
+	{
+		if(Selected.Selections[LeadIndex].Lead != nullptr)
+		{
+			
+		}
+	}
+}
+
+void ARTSEntities_PlayerControllerCommand::Server_IssueFormationChange_Implementation(const float IndexChange)
+{
+	
+}
+
+void ARTSEntities_PlayerControllerCommand::Server_IssueSpacingChange_Implementation(const ERTSEntities_SpacingType& ChangeType)
+{
+	if(!HasSelectedEntities())
+	{
+		return;
+	}
+
+	// Get the lead of the selection and issue a navigation update
+	if(ARTSEntities_Group* LeadGroup = Selected.GetLeadGroup())
+	{
+		
+	}
+
+	// Create client command data, gather client params for server command creation
+	const FRTSEntities_ClientCommandData ClientCommandData = CreateCommandClientData();
+
+	// Generate command data for the preview
+	FRTSEntities_CommandData CommandData = FRTSEntities_CommandData();
+	UpdateCommandData(ClientCommandData, CommandData, Selected, true);
+	
+	
+	for (int i = 0; i < Selected.Selections.Num(); ++i)
+	{
+		switch (ChangeType)
+		{
+		case ERTSEntities_SpacingType::EntityChange:
+			
+			break;
+		case ERTSEntities_SpacingType::GroupChange:
+			
+			break;
+		case ERTSEntities_SpacingType::SpacingChangeBoth:
+			
+			break;
+		default: ;
+		}
+	}
 }

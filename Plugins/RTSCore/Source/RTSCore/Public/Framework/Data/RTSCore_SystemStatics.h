@@ -18,4 +18,6 @@ public:
 	
 	// Utility Functions
 	static void GetTerrainPosition(UWorld* WorldContext, FVector& TerrainPosition);
+	static void GetTerrainTransform(UWorld* WorldContext, FTransform& TerrainTransform);
+	static void GetTerrainLocationAndNormal(UWorld* WorldContext, FVector& Location, FVector& Normal);
 };

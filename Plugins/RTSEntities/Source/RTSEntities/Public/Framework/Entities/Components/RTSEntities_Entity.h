@@ -8,7 +8,9 @@
 #include "Framework/Interfaces/RTSCore_TeamInterface.h"
 #include "RTSEntities_Entity.generated.h"
 
-class ARTSEntities_Decal;
+class UNiagaraComponent;
+class UNiagaraSystem;
+class ARTSEntities_MarkerActor;
 class ARTSEntities_PlayerController;
 class IRTSCore_TeamManagerInterface;
 class URTSEntities_FormationDataAsset;
@@ -66,28 +68,33 @@ public:
 	virtual UMaterialInstance* GetHighlightMaterial() const;
 	virtual UMaterialInstance* GetSelectMaterial() const;
 	virtual UMaterialInstanceDynamic* GetCommandDestinationMaterial();
-	virtual void CreateDecalComponent();
-	virtual float GetSelectionDecalSize() const;
-	virtual void HandleDestinationDecal(uint8 Display, const uint8 Preview, const FVector& NewLocation = FVector::ZeroVector, const FRotator& NewRotation = FRotator::ZeroRotator,
-		const ERTSEntities_CommandStatus& Status = ERTSEntities_CommandStatus::NoStatus);
+	virtual ERTSEntities_SelectionMarkerType GetMarkerType();
+	virtual void CreateMarkerComponents();
+	virtual float GetSelectionMarkerSize() const;
+	virtual UMaterialInstance* GetSelectionMaterial() const;
+	virtual UMaterialInstance* GetDestinationMaterial() const;
+	virtual UNiagaraSystem* GetSelectionNiagaraSystem() const;
+	virtual UNiagaraSystem* GetDestinationNiagaraSystem() const;
+	virtual void HandleDestinationMarker(uint8 Display, const FRTSEntities_EntityPosition& EntityPosition = FRTSEntities_EntityPosition(), const ERTSEntities_CommandStatus& Status = ERTSEntities_CommandStatus::NoStatus);
 	
 	FOnSelectedChangeDelegate OnSelectedChange;
 
 protected:
 	UFUNCTION(Client, Unreliable)
-	void Client_HandleDestinationDecal(uint8 Display, const uint8 Preview, const FVector& NewLocation, const FRotator& NewRotation,	const ERTSEntities_CommandStatus& Status);
+	void Client_HandleDestinationMarker(uint8 Display, const FRTSEntities_EntityPosition& EntityPosition, const ERTSEntities_CommandStatus& Status);
 	
-	virtual ARTSEntities_Decal* CreateDecalActor();
-	virtual void CreateOrUpdateDecalActor(const ARTSEntities_Decal* DecalActor, const FVector& NewLocation, const FRotator& NewRotation, const ERTSEntities_CommandStatus Status) const;
+	virtual ARTSEntities_MarkerActor* CreateMarkerActor();
+	virtual void UpdateDestinationMarker(const FRTSEntities_EntityPosition& EntityPosition, const ERTSEntities_CommandStatus Status);
+	virtual void CreateDestinationEffect(uint8 Display, const FRTSEntities_EntityPosition& EntityPosition, const ERTSEntities_CommandStatus& Status);
 
 	UFUNCTION(Client, Reliable)
 	void Client_CreateDecalComponent();
 	
 	UPROPERTY()
-	ARTSEntities_Decal* DestinationMarker;
+	ARTSEntities_MarkerActor* DestinationMarkerDecal;
 	
 	UPROPERTY()
-	ARTSEntities_Decal* DestinationMarkerPreview;
+	UNiagaraComponent* DestinationMarkerEffect;
 
 	UPROPERTY()
 	UMaterialInstanceDynamic* DynamicHighlightMaterial;
@@ -139,7 +146,7 @@ private:
 	// Navigation
 public:
 	virtual bool IsNavigating() const;
-	virtual float GetSpacing() const { return Spacing; }
+	virtual float GetMinSpacing() const;
 	virtual float GetMaxSpeed() const;
 	virtual float GetDefaultMaxSpeed() const;
 	float GetSpeed() const { return GetActor() && GetActor()->GetVelocity().Length() > 1.f ? FMath::Abs(GetActor()->GetVelocity().Length() * 0.036) : 0.f; }
@@ -159,7 +166,28 @@ public:
 	virtual void HandleSpeedChange();
 	virtual float GetFormationThreshold() const;
 	
+	virtual FVector GetDestination() const { return NavigationDestination; }
+	virtual void SetNavigationDestination(const FVector& Location);
+	virtual bool HasDestination() const { return (NavigationDestination - GetActorLocation()).Length() > 25.f; }
+	virtual FVector GetPreviewLocation() const { return Client_PreviewEntityPosition.Destination; }	
+	virtual void PreviewNavigation(const FRTSEntities_EntityPosition& EntityPosition, const uint8 ShowPreview);
+	virtual bool HasPreviewData() const { return Client_PreviewEntityPosition.IsValid(); }
+
+	/** Speed State **/	
+	virtual void SetSpeedState(const ERTSCore_SpeedState& NewSpeedState) const;
+	virtual void SetStanceState(const ERTSCore_StanceState& NewStanceState) const;
+	
 	FOnFormationChangeDelegate OnFormationChange;
+
+	UPROPERTY(ReplicatedUsing = OnRep_NavigationDestination)
+	FVector NavigationDestination;
+
+	UPROPERTY()
+	FRTSEntities_EntityPosition Client_PreviewEntityPosition;
+
+private:
+	UFUNCTION()
+	void OnRep_NavigationDestination();
 	// End Navigation
 	
 
@@ -186,6 +214,12 @@ private:
 	void OnRep_Formation();
 	
 	// End Formation
+
+	/** Behaviour Manager **/
+public:
+	void OnBehaviourStateChange(const ERTSCore_BehaviourState& NewState);
+
+	/** End Behaviour Manager **/
 	
 
 protected:

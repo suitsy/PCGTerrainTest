@@ -504,7 +504,7 @@ float ARTSEntities_Group::GetRequiredSpacing() const
 		{
 			if(const URTSEntities_Entity* EntityComponent = URTSEntities_Entity::FindEntityComponent(Pawn))
 			{
-				TotalSpacing += EntityComponent->GetSpacing();
+				TotalSpacing += EntityComponent->GetMinSpacing();
 				if(SingleSpace <= 0.f)
 				{
 					SingleSpace = TotalSpacing;

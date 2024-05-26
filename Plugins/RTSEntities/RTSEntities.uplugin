@@ -50,6 +50,10 @@
 		{
 			"Name": "RogueRVO",
 			"Enabled": true
+		},
+		{
+			"Name": "Niagara",
+			"Enabled": true
 		}
 	]
 }

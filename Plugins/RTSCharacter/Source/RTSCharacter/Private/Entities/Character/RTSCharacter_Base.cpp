@@ -12,6 +12,7 @@
 #include "Perception/AISense_Sight.h"
 #include "Framework/Components/RogueRVO_Component.h"
 #include "Framework/Components/RogueRVO_CharacterMovementComponent.h"
+#include "Net/UnrealNetwork.h"
 #if WITH_EDITOR
 #include "Framework/Settings/RTSCore_DeveloperSettings.h"
 #endif
@@ -49,6 +50,14 @@ Super(ObjectInitializer.SetDefaultSubobjectClass<URogueRVO_CharacterMovementComp
 	NavigationPath->SetAbsolute(true, true);
 	NavigationPath->SetClosedLoop(false);
 	NavigationPath->Mobility = EComponentMobility::Movable;
+}
+
+void ARTSCharacter_Base::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ThisClass, CurrentUprightAmount);
+	DOREPLIFETIME(ThisClass, UprightAmount);
 }
 
 void ARTSCharacter_Base::Tick(float DeltaTime)

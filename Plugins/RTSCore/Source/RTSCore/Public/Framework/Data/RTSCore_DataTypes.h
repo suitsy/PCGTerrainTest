@@ -113,6 +113,7 @@ enum class ERTSCore_StateCategory : uint8
 	Navigation,
 	Behaviour,
 	Speed,
+	Stance,
 	Condition,
 	Posture,
 	Ammunition

@@ -11,7 +11,7 @@ URTSAi_BTTask_SetStance::URTSAi_BTTask_SetStance(const FObjectInitializer& Objec
 	bNotifyTick = false;
 	bNotifyTaskFinished = false;
 	bCreateNodeInstance = false;
-	NodeName = TEXT("Clear Focus");
+	NodeName = TEXT("Set Stance");
 	Stance = ERTSAi_StanceState::Standing;
 }
 

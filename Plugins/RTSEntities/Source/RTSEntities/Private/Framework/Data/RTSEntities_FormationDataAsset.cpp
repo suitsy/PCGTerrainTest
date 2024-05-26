@@ -37,15 +37,15 @@ void URTSEntities_FormationDataAsset::CreateFormation(FRTSEntities_Navigation& N
 			// Multiple Selections
 
 			// Create multi selection estimated group formation
-			const float EstimatedSpacing = GetSelectedAverageSpacing(Navigation, Selections);
-			CreateFormationPositions(Navigation, Selections, EstimatedSpacing);
+			float EntitiesSpacing = Navigation.EntitySpacing * Selections.Num();
+			GetSelectedAverageSpacing(Navigation, Selections, EntitiesSpacing);
+			CreateFormationPositions(Navigation, Selections, EntitiesSpacing);
 		
 			// Assign groups to positions
 			AssignSelectionPositions(Navigation, Selections);
 
 			// Update formation with actual group position data
 			UpdateSelectionAssignedPositions(Navigation);
-
 			
 			for (int i = 0; i < Navigation.Positions.Num(); ++i)
 			{				
@@ -63,29 +63,28 @@ void URTSEntities_FormationDataAsset::CreateFormation(FRTSEntities_Navigation& N
 	}	
 }
 
-float URTSEntities_FormationDataAsset::GetSelectedAverageSpacing(const FRTSEntities_Navigation& Navigation, const TArray<FRTSEntities_PlayerSelection>& Selections)
+void URTSEntities_FormationDataAsset::GetSelectedAverageSpacing(const FRTSEntities_Navigation& Navigation, const TArray<FRTSEntities_PlayerSelection>& Selections, float& EntitiesSpacing) 
 {
 	float SelectedAvgSpacing = 0.f;
 	for (int i = 0; i < Selections.Num(); ++i)
 	{
 		SelectedAvgSpacing += GetSelectionSpacing(Selections[i], Navigation.EntitySpacing);
-		SelectedAvgSpacing += Navigation.GroupSpacing;
 	}
 
 	// Prevent divide by zero
-	if(SelectedAvgSpacing == 0.f) { return 500.f; }
+	if(SelectedAvgSpacing == 0.f) { EntitiesSpacing = 1000.f; }
 	
-	return SelectedAvgSpacing /= Selections.Num();
+	EntitiesSpacing = SelectedAvgSpacing /= Selections.Num();
 }
 
-float URTSEntities_FormationDataAsset::GetSelectionSpacing(const FRTSEntities_PlayerSelection& Selection, const float CommandEntitySpacing)
+float URTSEntities_FormationDataAsset::GetSelectionSpacing(const FRTSEntities_PlayerSelection& Selection, const float EntitySpacing)
 {
 	float SelectionSpacing = 0.f;
 	for (int i = 0; i < Selection.Entities.Num(); ++i)
 	{
-		const float EntityReqSpacing = GetEntitySpacing(Selection.Entities[i]) * 2.f;
+		const float EntityReqSpacing = GetEntityReqSpacing(Selection.Entities[i]);
 		//const float EntitySpacing = i != 0 ? CommandEntitySpacing : 0.f;
-		SelectionSpacing += EntityReqSpacing + CommandEntitySpacing;
+		SelectionSpacing += EntityReqSpacing + EntitySpacing;
 	}
 
 	return SelectionSpacing;
@@ -96,25 +95,24 @@ float URTSEntities_FormationDataAsset::GetEntitiesAverageSpacing(const TArray<AA
 	float AverageSpacing = 0.f;
 	for (int i = 0; i < Entities.Num(); ++i)
 	{
-		const float EntityReqSpacing = GetEntitySpacing(Entities[i]);
-		const float EntitySpacing = i != 0 ? Spacing : 0.f;
-		AverageSpacing += EntityReqSpacing + EntitySpacing;
+		const float EntityReqSpacing = GetEntityReqSpacing(Entities[i]);
+		AverageSpacing += EntityReqSpacing + Spacing;
 	}
 
 	// Prevent divide by zero
-	if(AverageSpacing == 0.f) { return 50.f; }
+	if(AverageSpacing == 0.f) { return 150.f; }
 	
 	return AverageSpacing /= Entities.Num();
 }
 
-float URTSEntities_FormationDataAsset::GetEntitySpacing(const AActor* Entity)
+float URTSEntities_FormationDataAsset::GetEntityReqSpacing(const AActor* Entity)
 {
 	if(const APawn* Pawn = Cast<APawn>(Entity))
 	{
 		// Is selection entity
 		if(const URTSEntities_Entity* EntityComponent = URTSEntities_Entity::FindEntityComponent(Pawn))
 		{
-			return EntityComponent->GetSpacing();
+			return EntityComponent->GetMinSpacing();
 		}
 	}
 
@@ -122,7 +120,7 @@ float URTSEntities_FormationDataAsset::GetEntitySpacing(const AActor* Entity)
 }
 
 void URTSEntities_FormationDataAsset::CreateFormationPositions(FRTSEntities_Navigation& Navigation, const TArray<FRTSEntities_PlayerSelection>& Selections,
-	const float Spacing) const
+	const float EntitiesSpacing) const
 {
 	// Reset spacing variables
 	float SpacingLeft = 0.f, SpacingRight = 0.f, SpacingCenter = 0.f;
@@ -130,9 +128,9 @@ void URTSEntities_FormationDataAsset::CreateFormationPositions(FRTSEntities_Navi
 	// Check if there is an odd count to selections (require center position for odd)
 	const bool bIsOddCount = Selections.Num() % 2 != 0;
 
-	// Force a side by side formation for groups 2 or less
+	// Force a side by side formation for groups 2 or less (unless formation is column)
 	FVector FormationOffset = Offset;
-	if(Selections.Num() <= 2)
+	if(Selections.Num() <= 2 && Type != EFormationType::Column)
 	{
 		FormationOffset = FVector(0.f, 1.f, 0.f);
 	}
@@ -151,10 +149,10 @@ void URTSEntities_FormationDataAsset::CreateFormationPositions(FRTSEntities_Navi
 				// Assign a position with a center side, an zero index and a temp location
 				Navigation.Positions.Add(FRTSEntities_FormationPosition(Navigation.Location, Navigation.Rotation, Navigation.Offset, ERTSEntities_SelectionSide::CenterSide));
 
-				// Update spacing for left and right positions
-				SpacingLeft = Spacing;
-				SpacingRight = Spacing;
-
+				// Spacing after center position is total entities spacing plus the group spacing
+				SpacingLeft = EntitiesSpacing + Navigation.GroupSpacing;
+				SpacingRight = EntitiesSpacing + Navigation.GroupSpacing;
+				
 				continue;
 			}		
 
@@ -163,7 +161,7 @@ void URTSEntities_FormationDataAsset::CreateFormationPositions(FRTSEntities_Navi
 			{
 				if(SpacingLeft == 0.f && !bIsOddCount)
 				{
-					SpacingLeft += Spacing * 0.5f;
+					SpacingLeft += EntitiesSpacing * 0.5f + Navigation.GroupSpacing * 0.5f;
 				}
 				
 				// Apply spacing and inversion for left side offset position
@@ -173,13 +171,13 @@ void URTSEntities_FormationDataAsset::CreateFormationPositions(FRTSEntities_Navi
 				Navigation.Positions.Add(FRTSEntities_FormationPosition(Navigation.Location + LocalOffset, Navigation.Rotation, Navigation.Offset, ERTSEntities_SelectionSide::LeftSide));
 		
 				// Add spacing for next left position
-				SpacingLeft += Spacing;
+				SpacingLeft += EntitiesSpacing + Navigation.GroupSpacing;
 			}
 			else
 			{
 				if(SpacingRight == 0.f && !bIsOddCount)
 				{
-					SpacingRight += Spacing * 0.5f;
+					SpacingRight += EntitiesSpacing * 0.5f + Navigation.GroupSpacing * 0.5f;
 				}
 				
 				// Assign a position with a right side, an R-index and a temp location
@@ -188,14 +186,14 @@ void URTSEntities_FormationDataAsset::CreateFormationPositions(FRTSEntities_Navi
 				Navigation.Positions.Add(FRTSEntities_FormationPosition(Navigation.Location + LocalOffset, Navigation.Rotation, Navigation.Offset, ERTSEntities_SelectionSide::RightSide));
 								
 				// Add spacing for next left position
-				SpacingRight += Spacing;
+				SpacingRight += EntitiesSpacing + Navigation.GroupSpacing;
 			}
 		}
 		else
 		{
 			if(i != 0)
 			{
-				SpacingCenter += Spacing;
+				SpacingCenter += EntitiesSpacing;
 				LocalOffset *= SpacingCenter;
 			}
 			
@@ -302,9 +300,9 @@ void URTSEntities_FormationDataAsset::UpdateSelectionAssignedPositions(FRTSEntit
 		}
 
 		// Reset a local offset for this calculation
-		// Force a side by side formation for groups 2 or less
+		// Force a side by side formation for groups 2 or less and not column
 		FVector LocalOffset = Offset;
-		if(Navigation.Positions.Num() <= 2)
+		if(Navigation.Positions.Num() <= 2 && Type != EFormationType::Column)
 		{
 			LocalOffset = FVector(0.f, 1.f, 0.f);
 		}
@@ -390,7 +388,7 @@ void URTSEntities_FormationDataAsset::CreateEntityPositions(FRTSEntities_Navigat
 	// Check if there is an odd count to selections (require center position for odd)
 	const bool bIsOddCount = Navigation.Positions[Index].Selection.Entities.Num() % 2 != 0;
 
-	const float Spacing = GetEntitiesAverageSpacing(Navigation.Positions[Index].Selection.Entities, Navigation.EntitySpacing);
+	const float AvgSpacing = GetEntitiesAverageSpacing(Navigation.Positions[Index].Selection.Entities, Navigation.EntitySpacing);
 	
 	for (int FormationIndex = 0; FormationIndex < Navigation.Positions[Index].Selection.Entities.Num(); ++FormationIndex)
 	{
@@ -407,9 +405,9 @@ void URTSEntities_FormationDataAsset::CreateEntityPositions(FRTSEntities_Navigat
 				Navigation.Positions[Index].EntityPositions.Add(FRTSEntities_EntityPosition(Navigation.Positions[Index].Destination,
 					Navigation.Positions[Index].Destination, Navigation.Rotation, ERTSEntities_SelectionSide::CenterSide));
 
-				// Update spacing for left and right positions
-				SpacingLeft = Spacing * 0.5f;
-				SpacingRight = Spacing * 0.5f;
+				// Update spacing for left and right positions after adding zero position
+				SpacingLeft = AvgSpacing;
+				SpacingRight = AvgSpacing;
 
 				continue;
 			}		
@@ -419,7 +417,8 @@ void URTSEntities_FormationDataAsset::CreateEntityPositions(FRTSEntities_Navigat
 			{
 				if(SpacingLeft == 0.f && !bIsOddCount)
 				{
-					SpacingLeft += Spacing * 0.5f;
+					// For even entity counts the initial spacing needs to be half the spacing either side of center position 
+					SpacingLeft += AvgSpacing * 0.5f;
 				}
 				
 				// Apply spacing and inversion for left side offset position
@@ -430,13 +429,14 @@ void URTSEntities_FormationDataAsset::CreateEntityPositions(FRTSEntities_Navigat
 					Navigation.Positions[Index].Destination, Navigation.Rotation, ERTSEntities_SelectionSide::LeftSide));
 
 				// Add spacing for next left position
-				SpacingLeft += Spacing * 0.5f;;
+				SpacingLeft += AvgSpacing;
 			}
 			else
 			{
 				if(SpacingRight == 0.f && !bIsOddCount)
 				{
-					SpacingRight += Spacing * 0.5f;
+					// For even entity counts the initial spacing needs to be half the spacing either side of center position 
+					SpacingRight += AvgSpacing * 0.5f;
 				}
 				
 				// Assign a position with a right side, an R-index and a temp location
@@ -446,14 +446,14 @@ void URTSEntities_FormationDataAsset::CreateEntityPositions(FRTSEntities_Navigat
 					Navigation.Positions[Index].Destination, Navigation.Rotation, ERTSEntities_SelectionSide::RightSide));
 
 				// Add spacing for next left position
-				SpacingRight += Spacing * 0.5f;;
+				SpacingRight += AvgSpacing;
 			}
 		}
 		else
 		{
 			if(FormationIndex != 0)
 			{
-				SpacingCenter += Spacing;
+				SpacingCenter += AvgSpacing;
 				LocalOffset *= SpacingCenter;
 			}
 			
@@ -518,7 +518,7 @@ void URTSEntities_FormationDataAsset::AssignEntityPositions(FRTSEntities_Formati
 void URTSEntities_FormationDataAsset::UpdateEntityPositions(FRTSEntities_Navigation& Navigation, const int32 Index) const
 {
 	// Set spacing 
-	float SpacingLeft = 0, SpacingRight = 0, SpacingCenter = 0;		
+	float SpacingLeft = 0, SpacingRight = 0, SpacingCenter = 0;
 
 	for (int i = 0; i < Navigation.Positions[Index].EntityPositions.Num(); ++i)
 	{
@@ -531,7 +531,7 @@ void URTSEntities_FormationDataAsset::UpdateEntityPositions(FRTSEntities_Navigat
 		FVector LocalOffset = Offset;
 
 		// Get entity's required spacing
-		const float RequiredSpacing = GetEntitySpacing(Navigation.Positions[Index].EntityPositions[i].Owner);
+		const float RequiredSpacing = GetEntityReqSpacing(Navigation.Positions[Index].EntityPositions[i].Owner);
 		
 		if(Alt)
 		{
@@ -541,19 +541,19 @@ void URTSEntities_FormationDataAsset::UpdateEntityPositions(FRTSEntities_Navigat
 				// Assign command location to this positions location
 				Navigation.Positions[Index].EntityPositions[i].Destination = Navigation.Positions[Index].Destination;
 
-				// Add the selections spacing plus the group spacing left and right for next positions
+				// Add the entity req spacing plus half the current entity spacing left and right for next positions
 				SpacingLeft += RequiredSpacing * 0.5f + Navigation.EntitySpacing * 0.5f;
 				SpacingRight += RequiredSpacing * 0.5f + Navigation.EntitySpacing * 0.5f;
 			}
 
 			if(Navigation.Positions[Index].EntityPositions[i].Side == ERTSEntities_SelectionSide::LeftSide)
-			{
+			{				
+				// Add 50% of the req spacing and 50% of the entity spacing to get the actual entity location
+				SpacingLeft += RequiredSpacing * 0.5f + Navigation.EntitySpacing * 0.5f;	
+				Navigation.Positions[Index].EntityPositions[i].Spacing = SpacingLeft;
+				
 				// Invert offset for left side
 				LocalOffset.Y = LocalOffset.Y * -1;
-			
-				// Add 50% of the group spacing and 50% of the selections spacing to get the selection center location
-				SpacingLeft += RequiredSpacing * 0.5f + Navigation.EntitySpacing * 0.5f;
-				Navigation.Positions[Index].EntityPositions[i].Spacing = SpacingLeft;
 
 				// Add spacing and local rotation to offset 
 				LocalOffset *= SpacingLeft;			
@@ -562,13 +562,13 @@ void URTSEntities_FormationDataAsset::UpdateEntityPositions(FRTSEntities_Navigat
 				// Calculate the offset	location
 				Navigation.Positions[Index].EntityPositions[i].Destination = Navigation.Positions[Index].Destination + LocalOffset;
 
-				// Add rest of this selections spacing
+				// Add the rest of the req and entity spacing for next entity start calc point
 				SpacingLeft += RequiredSpacing * 0.5f + Navigation.EntitySpacing * 0.5f;	
 			}
 
 			if(Navigation.Positions[Index].EntityPositions[i].Side == ERTSEntities_SelectionSide::RightSide)
 			{
-				// Add 50% of the group spacing and 50% of the selections spacing to get the selection center location
+				// Add 50% of the req spacing and 50% of the entity spacing to get the actual entity location
 				SpacingRight += RequiredSpacing * 0.5f + Navigation.EntitySpacing * 0.5f;				
 				Navigation.Positions[Index].EntityPositions[i].Spacing = SpacingRight;
 				
@@ -579,7 +579,7 @@ void URTSEntities_FormationDataAsset::UpdateEntityPositions(FRTSEntities_Navigat
 				// Calculate the offset location
 				Navigation.Positions[Index].EntityPositions[i].Destination = Navigation.Positions[Index].Destination + LocalOffset;	
 
-				// Add rest of this selections spacing
+				// Add the rest of the req and entity spacing for next entity start calc point
 				SpacingRight += RequiredSpacing * 0.5f + Navigation.EntitySpacing * 0.5f;	
 			}
 		}

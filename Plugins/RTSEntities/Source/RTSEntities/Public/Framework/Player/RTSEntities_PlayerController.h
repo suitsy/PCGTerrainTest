@@ -96,13 +96,7 @@ protected:
 	uint8 bPreviewCommand:1;
 
 	UPROPERTY()
-	FRTSEntities_Navigation Client_PreviewNavigation;
-
-	UPROPERTY()
-	FVector PreviousPreviewLocation;
-
-	UPROPERTY()
-	FRotator PreviousPreviewRotation;
+	FRTSEntities_Navigation Client_PreviewNavigationData;
 
 private:		
 	UFUNCTION()

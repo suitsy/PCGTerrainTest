@@ -195,11 +195,11 @@ void ARTSCore_GameMode::HandleGameDataAssignment()
 		CurrentGameDataAssetId = FPrimaryAssetId(FPrimaryAssetType(RTS_DATA_ASSET_TYPE_GAMEDATA), FName(*GameDataFromOptions));
 	}
 
-	// Fallback to default grid
-	if (!CurrentGameDataAssetId.IsValid())
-	{
-		CurrentGameDataAssetId = FPrimaryAssetId(FPrimaryAssetType(RTS_DATA_ASSET_TYPE_GAMEDATA_TEXT), RTS_DATA_ASSET_TYPE_GAMEDATA_DEFAULT);
-	}
+// Fallback to default data
+if (!CurrentGameDataAssetId.IsValid())
+{
+	CurrentGameDataAssetId = FPrimaryAssetId(FPrimaryAssetType(RTS_DATA_ASSET_TYPE_GAMEDATA_TEXT), RTS_DATA_ASSET_TYPE_GAMEDATA_DEFAULT);
+}
 
 	if(CurrentGameDataAssetId.IsValid())
 	{

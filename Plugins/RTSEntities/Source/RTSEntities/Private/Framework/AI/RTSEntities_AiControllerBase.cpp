@@ -192,6 +192,8 @@ int32 ARTSEntities_AiControllerBase::GetState(const ERTSCore_StateCategory Categ
 				return GetBlackboardComponent()->GetValueAsInt(RTS_BLACKBOARD_VALUE_BEHAVESTATE);
 			case ERTSCore_StateCategory::Speed:
 				return GetBlackboardComponent()->GetValueAsInt(RTS_BLACKBOARD_VALUE_SPEEDSTATE);
+			case ERTSCore_StateCategory::Stance:
+				return GetBlackboardComponent()->GetValueAsInt(RTS_BLACKBOARD_VALUE_STANCESTATE);
 			case ERTSCore_StateCategory::Condition:
 				return GetBlackboardComponent()->GetValueAsInt(RTS_BLACKBOARD_VALUE_CONDSTATE);
 			case ERTSCore_StateCategory::Posture:

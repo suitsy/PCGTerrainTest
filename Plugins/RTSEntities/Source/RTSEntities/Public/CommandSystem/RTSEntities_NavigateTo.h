@@ -6,7 +6,7 @@
 #include "RTSEntities_Command.h"
 #include "RTSEntities_NavigateTo.generated.h"
 
-class ARTSEntities_Decal;
+class ARTSEntities_MarkerActor;
 class URTSEntities_FormationDataAsset;
 /**
  * 

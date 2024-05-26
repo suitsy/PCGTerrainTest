@@ -99,7 +99,7 @@ void URTSEntities_NavigateTo::ExecuteNavigation()
 	
 	for (int i = 0; i < Data.Selected.Selections.Num(); ++i)
 	{
-		if(Data.Selected.Selections[i].IsValid())
+		if(Data.Selected.Selections[i].IsValid() && Data.Selected.Selections[i].Group != nullptr)
 		{
 			if(!Data.Selected.Selections[i].Group->AssignedCommand(Data.Id) && !Data.Selected.Selections[i].Group->HasCompletedCommand(Data.Id))
 			{

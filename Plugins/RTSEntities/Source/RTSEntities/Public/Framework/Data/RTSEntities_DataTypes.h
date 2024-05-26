@@ -102,6 +102,23 @@ enum class ERTSEntities_SelectionSide
 	CenterSide
 };
 
+UENUM(BlueprintType)
+enum class ERTSEntities_SelectionMarkerType
+{
+	NoSelectionMarker,
+	Decal,
+	NiagaraSystem
+};
+
+UENUM()
+enum class ERTSEntities_SpacingType
+{
+	SpacingChangeNone,
+	EntityChange,
+	GroupChange,
+	SpacingChangeBoth
+};
+
 
 USTRUCT(BlueprintType)
 struct FRTSEntities_PlayerSelection
@@ -360,6 +377,54 @@ public:
 };
 
 USTRUCT(BlueprintType)
+struct FRTSEntities_ClientCommandData
+{
+	GENERATED_BODY()
+	
+public:
+	FRTSEntities_ClientCommandData():
+		CommandType(ERTSEntities_CommandType::Idle),
+		HasNavigation(0),
+		TargetTransform(FTransform::Identity),
+		SourceTransform(FTransform::Identity),
+		BehaviourState(ERTSCore_BehaviourState::Safe)
+
+	{}
+	
+	FRTSEntities_ClientCommandData(
+		const ERTSEntities_CommandType& Type,
+		const uint8 HasNavigation
+	):
+		CommandType(Type),
+		HasNavigation(HasNavigation),
+		TargetTransform(FTransform::Identity),
+		SourceTransform(FTransform::Identity),
+		BehaviourState(ERTSCore_BehaviourState::Safe)
+	{}
+
+	UPROPERTY()
+	ERTSEntities_CommandType CommandType;
+
+	UPROPERTY()
+	uint8 HasNavigation:1;
+
+	UPROPERTY()
+	FTransform TargetTransform;
+
+	UPROPERTY()
+	FTransform SourceTransform;
+
+	UPROPERTY()
+	ERTSCore_BehaviourState BehaviourState;
+
+	bool IsValid() const { return CommandType != ERTSEntities_CommandType::Idle; }
+	void SetTargetLocation(const FVector& Location) { TargetTransform.SetLocation(Location); }
+	void SetTargetRotation(const FRotator& Rotation) { TargetTransform.SetRotation(Rotation.Quaternion()); }
+	void SetSourceLocation(const FVector& Location) { SourceTransform.SetLocation(Location); }
+	void SetSourceRotation(const FRotator& Rotation) { SourceTransform.SetRotation(Rotation.Quaternion()); }
+};
+
+USTRUCT(BlueprintType)
 struct FRTSEntities_CommandData
 {
 	GENERATED_BODY()
@@ -375,7 +440,8 @@ public:
 		LeadSelectionIndex(-1),
 		Selected(FRTSEntities_PlayerSelections()),
 		TargetActor(nullptr),
-		HasNavigation(false)
+		HasNavigation(false),
+		BehaviourState(ERTSCore_BehaviourState::Safe)
 	{}
 
 	UPROPERTY()
@@ -411,54 +477,16 @@ public:
 	UPROPERTY()
 	FRTSEntities_Navigation Navigation;
 
-	bool IsValid() const { return CommandType != ERTSEntities_CommandType::Idle; }	
+	UPROPERTY()
+	ERTSCore_BehaviourState BehaviourState;
+
+	bool IsValid() const { return CommandType != ERTSEntities_CommandType::Idle; }
+	void ApplyClientData(const FRTSEntities_ClientCommandData& ClientData);
 	void SetSelected(const FRTSEntities_PlayerSelections& InSelected);
 	void AssignSelectionData();
 	void GetCommandCenterLocation(FVector& CenterLocation) const;
 	FVector GetLocation() const { return TargetTransform.GetLocation(); }
 	FRotator GetRotation() const { return TargetTransform.GetRotation().Rotator(); }
-};
-
-USTRUCT(BlueprintType)
-struct FRTSEntities_ClientCommandData
-{
-	GENERATED_BODY()
-	
-public:
-	FRTSEntities_ClientCommandData():
-		CommandType(ERTSEntities_CommandType::Idle),
-		HasNavigation(0),
-		TargetTransform(FTransform::Identity),
-		SourceTransform(FTransform::Identity)
-	{}
-	
-	FRTSEntities_ClientCommandData(
-		const ERTSEntities_CommandType& Type,
-		const uint8 HasNavigation
-	):
-		CommandType(Type),
-		HasNavigation(HasNavigation),
-		TargetTransform(FTransform::Identity),
-		SourceTransform(FTransform::Identity)
-	{}
-
-	UPROPERTY()
-	ERTSEntities_CommandType CommandType;
-
-	UPROPERTY()
-	uint8 HasNavigation:1;
-
-	UPROPERTY()
-	FTransform TargetTransform;
-
-	UPROPERTY()
-	FTransform SourceTransform;
-
-	bool IsValid() const { return CommandType != ERTSEntities_CommandType::Idle; }
-	void SetTargetLocation(const FVector& Location) { TargetTransform.SetLocation(Location); }
-	void SetTargetRotation(const FRotator& Rotation) { TargetTransform.SetRotation(Rotation.Quaternion()); }
-	void SetSourceLocation(const FVector& Location) { SourceTransform.SetLocation(Location); }
-	void SetSourceRotation(const FRotator& Rotation) { SourceTransform.SetRotation(Rotation.Quaternion()); }
 };
 
 
@@ -486,9 +514,9 @@ struct FRTSEntities_InitialisationData
 	GENERATED_BODY()
 
 public:
-	FRTSEntities_InitialisationData(): Entity(nullptr), EntityConfigData(FRTSEntities_EntityConfigData()), bUseDecal(false), DecalSizeModifier(0.f), Group(nullptr), DefaultFormation(FPrimaryAssetId()) {}
-	FRTSEntities_InitialisationData(AActor* InEntity, const FRTSEntities_EntityConfigData& InData, const bool UseDecal, const float InDecalMod, ARTSEntities_Group* InGroup, const FPrimaryAssetId& InFormation)
-	: Entity(InEntity), EntityConfigData(InData), bUseDecal(UseDecal), DecalSizeModifier(InDecalMod), Group(InGroup), DefaultFormation(FPrimaryAssetId(InFormation)) {}
+	FRTSEntities_InitialisationData(): Entity(nullptr), EntityConfigData(FRTSEntities_EntityConfigData()), SelectionMarkerType(ERTSEntities_SelectionMarkerType::Decal), SelectionMarkerRadius(0.f), Group(nullptr), DefaultFormation(FPrimaryAssetId()) {}
+	FRTSEntities_InitialisationData(AActor* InEntity, const FRTSEntities_EntityConfigData& InData, const ERTSEntities_SelectionMarkerType SelectionMarkerType, const float InSelectionMarkerRadius, ARTSEntities_Group* InGroup, const FPrimaryAssetId& InFormation)
+	: Entity(InEntity), EntityConfigData(InData), SelectionMarkerType(SelectionMarkerType), SelectionMarkerRadius(InSelectionMarkerRadius), Group(InGroup), DefaultFormation(FPrimaryAssetId(InFormation)) {}
 
 	UPROPERTY()
 	AActor* Entity;
@@ -497,10 +525,10 @@ public:
 	FRTSEntities_EntityConfigData EntityConfigData;
 	
 	UPROPERTY()
-	bool bUseDecal;
+	ERTSEntities_SelectionMarkerType SelectionMarkerType;
 	
 	UPROPERTY()
-	float DecalSizeModifier;
+	float SelectionMarkerRadius;
 	
 	UPROPERTY()
 	ARTSEntities_Group* Group;

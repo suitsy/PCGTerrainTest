@@ -2,6 +2,8 @@
 
 
 #include "Framework/Entities/Components/RTSEntities_Entity.h"
+
+#include "NiagaraFunctionLibrary.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/AssetManager.h"
@@ -11,7 +13,8 @@
 #include "Framework/Data/RTSEntities_FormationDataAsset.h"
 #include "Framework/Data/RTSEntities_GroupDataAsset.h"
 #include "Framework/Debug/RTSEntities_Debug.h"
-#include "Framework/Entities/Actors/RTSEntities_Decal.h"
+#include "Framework/Entities/Actors/RTSEntities_MarkerActor.h"
+#include "Framework/Entities/Components/RTSEntities_MarkerComponent.h"
 #include "Framework/Entities/Components/RTSEntities_SelectedDecalComponent.h"
 #include "Framework/Interfaces/RTSCore_TeamManager.h"
 #include "Framework/Player/RTSEntities_PlayerController.h"
@@ -19,6 +22,9 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
+#include "NiagaraSystem.h"
+#include "Framework/Data/RTSCore_SystemStatics.h"
+#include "Framework/Interfaces/RTSCore_EntityInterface.h"
 #include "Net/UnrealNetwork.h"
 #include "Net/Core/PushModel/PushModel.h"
 
@@ -47,6 +53,7 @@ void URTSEntities_Entity::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(ThisClass, GroupSpacing);
 	DOREPLIFETIME(ThisClass, MaxSpeed);
 	DOREPLIFETIME(ThisClass, Formation);
+	DOREPLIFETIME(ThisClass, NavigationDestination);
 	DOREPLIFETIME_WITH_PARAMS_FAST(ThisClass, TeamId, SharedParams);
 }
 
@@ -65,7 +72,6 @@ void URTSEntities_Entity::OnRep_EntityDataAssetId()
 	// Set any attributes from the entity data when replicated
 	if(const URTSEntities_EntityDataAsset* EntityData = GetEntityData())
 	{
-		Spacing = EntityData->Spacing;
 		MaxSpeed = EntityData->DefaultMaxSpeed;
 	}
 }
@@ -306,7 +312,7 @@ UMaterialInstance* URTSEntities_Entity::GetSelectMaterial() const
 {
 	if(const URTSEntities_EntityDataAsset* EntityData = GetEntityData())
 	{
-		return EntityData->SelectedMaterial.LoadSynchronous();		
+		return EntityData->SelectedMarkerMaterial.LoadSynchronous();		
 	}
 
 	return nullptr;
@@ -339,98 +345,227 @@ UMaterialInstanceDynamic* URTSEntities_Entity::GetCommandDestinationMaterial()
 	return DynamicDestinationMaterial;
 }
 
-void URTSEntities_Entity::CreateDecalComponent()
+ERTSEntities_SelectionMarkerType URTSEntities_Entity::GetMarkerType()
+{
+	if(const URTSEntities_EntityDataAsset* Data = GetEntityData())
+	{
+		return Data->SelectionMarkerType;
+	}
+
+	return ERTSEntities_SelectionMarkerType::NoSelectionMarker;
+}
+
+void URTSEntities_Entity::CreateMarkerComponents()
 {
 	Client_CreateDecalComponent();
 }
 
-float URTSEntities_Entity::GetSelectionDecalSize() const
+float URTSEntities_Entity::GetSelectionMarkerSize() const
 {
 	if(const URTSEntities_EntityDataAsset* Data = GetEntityData())
 	{
-		return Data->DecalSizeModifier;
+		return Data->SelectionMarkerRadius;
 	}
 
-	return 1.f;
+	return 150.f;
 }
 
-void URTSEntities_Entity::HandleDestinationDecal(uint8 Display, const uint8 Preview, const FVector& NewLocation, const FRotator& NewRotation,
-	const ERTSEntities_CommandStatus& Status)
+UMaterialInstance* URTSEntities_Entity::GetSelectionMaterial() const
 {
-	Client_HandleDestinationDecal(Display, Preview, NewLocation, NewRotation, Status);
-}
-
-void URTSEntities_Entity::Client_HandleDestinationDecal_Implementation(uint8 Display, const uint8 Preview,
-	const FVector& NewLocation, const FRotator& NewRotation, const ERTSEntities_CommandStatus& Status)
-{
-	if(!IsEntitySelected())
+	if(const URTSEntities_EntityDataAsset* Data = GetEntityData())
 	{
-		Display = false;
+		return Data->SelectedMarkerMaterial.LoadSynchronous();
 	}
+
+	return nullptr;
+}
+
+UMaterialInstance* URTSEntities_Entity::GetDestinationMaterial() const
+{
+	if(const URTSEntities_EntityDataAsset* Data = GetEntityData())
+	{
+		return Data->DestinationMarkerMaterial.LoadSynchronous();
+	}
+
+	return nullptr;
+}
+
+UNiagaraSystem* URTSEntities_Entity::GetSelectionNiagaraSystem() const
+{
+	if(const URTSEntities_EntityDataAsset* Data = GetEntityData())
+	{
+		return Data->NiagaraSystemSelection.LoadSynchronous();
+	}
+
+	return nullptr;
+}
+
+UNiagaraSystem* URTSEntities_Entity::GetDestinationNiagaraSystem() const
+{
+	if(const URTSEntities_EntityDataAsset* Data = GetEntityData())
+	{
+		return Data->NiagaraSystemDestination.LoadSynchronous();
+	}
+
+	return nullptr;
+}
+
+void URTSEntities_Entity::HandleDestinationMarker(uint8 Display, const FRTSEntities_EntityPosition& EntityPosition, const ERTSEntities_CommandStatus& Status)
+{
+	Client_HandleDestinationMarker(Display, EntityPosition, Status);
+}
+
+void URTSEntities_Entity::Client_HandleDestinationMarker_Implementation(uint8 Display, const FRTSEntities_EntityPosition& EntityPosition, const ERTSEntities_CommandStatus& Status)
+{
 	
-	if(Preview)
+	/*switch (GetMarkerType())
 	{
-		if(DestinationMarkerPreview == nullptr)
-		{
-			DestinationMarkerPreview = CreateDecalActor();
-		}
+		case ERTSEntities_SelectionMarkerType::Decal:
+			if(DestinationMarkerDecal == nullptr)
+			{
+				DestinationMarkerDecal = CreateMarkerActor();
+			}
 
-		if(DestinationMarkerPreview != nullptr)
-		{
-			Display ? CreateOrUpdateDecalActor(DestinationMarkerPreview, NewLocation, NewRotation, Status) : DestinationMarkerPreview->Disable();
-		}
-	}
-	else
-	{
-		if(DestinationMarker == nullptr)
-		{
-			DestinationMarker = CreateDecalActor();
-		}
-
-		if(DestinationMarker != nullptr)
-		{
-			Display ? CreateOrUpdateDecalActor(DestinationMarker, NewLocation, NewRotation, Status) : DestinationMarker->Disable();
-		}		
-	}
+			if(DestinationMarkerDecal != nullptr)
+			{
+				Display ? UpdateDestinationMarker(EntityPosition, Status) : DestinationMarkerDecal->Disable();
+			}			
+			break;
+		case ERTSEntities_SelectionMarkerType::NiagaraSystem:
+			CreateDestinationEffect(Display, EntityPosition, Status);
+			break;
+		default: ;
+	}*/
+	
 }
 
-ARTSEntities_Decal* URTSEntities_Entity::CreateDecalActor()
+ARTSEntities_MarkerActor* URTSEntities_Entity::CreateMarkerActor()
 {
-	ARTSEntities_Decal* DecalActor = Cast<ARTSEntities_Decal>(GetWorld()->SpawnActor(ARTSEntities_Decal::StaticClass()));
-	if(DecalActor != nullptr)
+	FActorSpawnParameters SpawnParameters = FActorSpawnParameters();
+	SpawnParameters.Owner = GetOwner();
+	
+	ARTSEntities_MarkerActor* MarkerActor = GetWorld()->SpawnActor<ARTSEntities_MarkerActor>(ARTSEntities_MarkerActor::StaticClass(), FTransform::Identity, SpawnParameters);
+	if(MarkerActor != nullptr)
 	{
 		if(UMaterialInstanceDynamic* MaterialInstance = GetCommandDestinationMaterial())
 		{
-			const FVector EntityExtent = GetExtent();
-			const float MaxRadius = FMath::Max(EntityExtent.X, EntityExtent.Y) * GetSelectionDecalSize();
-			const FVector DecalSize = FVector(EntityExtent.Z, MaxRadius, MaxRadius);
-			DecalActor->InitDestinationMarker(DecalSize, MaterialInstance);
-		}
+			const float Radius = GetSelectionMarkerSize();
+			const FVector DecalSize = FVector(Radius, Radius, Radius);
+			MarkerActor->InitDestinationDecal(DecalSize, MaterialInstance);
+		}		
 	}
 
-	return DecalActor;
+	return MarkerActor;
 }
 
-void URTSEntities_Entity::CreateOrUpdateDecalActor(const ARTSEntities_Decal* DecalActor, const FVector& NewLocation, const FRotator& NewRotation, const ERTSEntities_CommandStatus Status) const
+void URTSEntities_Entity::UpdateDestinationMarker(const FRTSEntities_EntityPosition& EntityPosition, const ERTSEntities_CommandStatus Status)
 {
-	if(DecalActor != nullptr)
+	if(DestinationMarkerDecal != nullptr)
 	{
-		
-		
-		DecalActor->UpdateDestinationMarker(NewLocation, NewRotation, Status);
+		switch (GetMarkerType())
+		{
+			case ERTSEntities_SelectionMarkerType::Decal:
+				DestinationMarkerDecal->UpdateDestinationDecal(EntityPosition, Status);
+				break;
+			default: ;
+		}
 	}
+}
+
+void URTSEntities_Entity::CreateDestinationEffect(const uint8 Display, const FRTSEntities_EntityPosition& EntityPosition, const ERTSEntities_CommandStatus& Status)
+{
+	if(Display)
+	{
+		if(DestinationMarkerEffect == nullptr)
+		{
+			const TSoftObjectPtr<UNiagaraSystem> SystemTemplate = GetDestinationNiagaraSystem();
+			if(SystemTemplate.IsValid())
+			{
+				if (UNiagaraSystem* NiagaraSystem = SystemTemplate.LoadSynchronous())
+				{
+					DestinationMarkerEffect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), NiagaraSystem, EntityPosition.Destination, EntityPosition.Rotation);
+					if(DestinationMarkerEffect != nullptr)
+					{
+						DestinationMarkerEffect->SetVariableMaterial(FName(TEXT("Material")), GetDestinationMaterial());
+						DestinationMarkerEffect->SetFloatParameter(FName(TEXT("Size")), GetSelectionMarkerSize());
+						DestinationMarkerEffect->SetFloatParameter(FName(TEXT("Height")), 5.f);
+					}
+				}
+			}
+		}
+		
+		if(DestinationMarkerEffect != nullptr)
+		{
+			FVector MarkerLocation = EntityPosition.Destination;
+			FVector MarkerNormal = FVector::ZeroVector;
+			URTSCore_SystemStatics::GetTerrainLocationAndNormal(GetWorld(), MarkerLocation, MarkerNormal);
+			DestinationMarkerEffect->SetVectorParameter(FName(TEXT("Position")), MarkerLocation);
+			DestinationMarkerEffect->SetVectorParameter(FName(TEXT("Facing")), MarkerNormal);
+
+			return;
+		}		
+	}
+
+	if(DestinationMarkerEffect != nullptr)
+	{
+		DestinationMarkerEffect->Deactivate();
+		DestinationMarkerEffect->UnregisterComponent();
+		DestinationMarkerEffect->DestroyInstance();
+		DestinationMarkerEffect->DestroyComponent();
+		DestinationMarkerEffect = nullptr;
+	}	
 }
 
 void URTSEntities_Entity::Client_CreateDecalComponent_Implementation()
 {
 	if(GetOwner())
 	{
-		if(URTSEntities_SelectedDecalComponent* DecalComponent = NewObject<URTSEntities_SelectedDecalComponent>(GetOwner(), TEXT("SelectedDecalComponent")))
+		// Get all marker types
+		TArray<ERTSEntities_MarkerType> MarkerTypes = GetEnumValues<ERTSEntities_MarkerType>();
+		
+		for (int i = 0; i < MarkerTypes.Num(); ++i)
 		{
-			DecalComponent->AttachToComponent(GetOwner()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-			DecalComponent->RegisterComponent();
-			GetOwner()->AddInstanceComponent(DecalComponent);
+			// Ensure we dont add a component for the no marker type
+			if(!MarkerTypes.IsValidIndex(i) || MarkerTypes[i] == ERTSEntities_MarkerType::NoMarker)
+			{
+				continue;
+			}
+
+			// Create the marker component for this type with unique name
+			FString EnumName = StaticEnum<ERTSEntities_MarkerType>()->GetNameStringByValue((int64)MarkerTypes[i]);
+
+			// Create a unique component name by appending the enum name
+			FString ComponentName = FString::Printf(TEXT("MarkerComponent_%s"), *EnumName);
+			
+			if(URTSEntities_MarkerComponent* MarkerComponent = NewObject<URTSEntities_MarkerComponent>(GetOwner(), *ComponentName))
+			{
+				// Attach and register
+				MarkerComponent->AttachToComponent(GetOwner()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+				MarkerComponent->RegisterComponent();		
+				GetOwner()->AddInstanceComponent(MarkerComponent);
+
+				// Assign marker type
+				MarkerComponent->SetMarkerType(MarkerTypes[i]);
+			}
 		}
+		
+		/*switch (SelectionMarkerType)
+		{
+			case ERTSEntities_SelectionMarkerType::Decal:
+				if(URTSEntities_SelectedDecalComponent* DecalComponent = NewObject<URTSEntities_SelectedDecalComponent>(GetOwner(), TEXT("SelectedDecalComponent")))
+				{
+					DecalComponent->AttachToComponent(GetOwner()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+					DecalComponent->RegisterComponent();
+					GetOwner()->AddInstanceComponent(DecalComponent);
+				}
+				break;
+			case ERTSEntities_SelectionMarkerType::NiagaraSystem:
+						
+				break;
+			default: ;
+		}*/
+		
+		
 	}
 }
 
@@ -557,6 +692,16 @@ bool URTSEntities_Entity::IsNavigating() const
 	return false;
 }
 
+float URTSEntities_Entity::GetMinSpacing() const
+{
+	if(const URTSEntities_EntityDataAsset* EntityData = GetEntityData())
+	{
+		return EntityData->MinimumSpacing;
+	}
+
+	return 150.f;
+}
+
 float URTSEntities_Entity::GetMaxSpeed() const
 {
 	switch (GetType())
@@ -574,10 +719,10 @@ float URTSEntities_Entity::GetMaxSpeed() const
 		break;
 		case ERTSCore_EntityType::Vehicle:
 		{
-			if(const URTSEntities_EntityDataAsset* EntityData = GetEntityData())
+			/*if(const URTSEntities_EntityDataAsset* EntityData = GetEntityData())
 			{
 				
-			}
+			}*/
 		}
 		break;
 		default: ;
@@ -810,6 +955,92 @@ float URTSEntities_Entity::GetFormationThreshold() const
 	return 99999;
 }
 
+void URTSEntities_Entity::SetNavigationDestination(const FVector& Location)
+{
+	NavigationDestination = Location;
+	if(HasAuthority())
+	{
+		OnRep_NavigationDestination();
+	}
+}
+
+void URTSEntities_Entity::PreviewNavigation(const FRTSEntities_EntityPosition& EntityPosition, const uint8 ShowPreview)
+{
+	/** CLIENT ONLY FUNCTION **/
+	
+	Client_PreviewEntityPosition = ShowPreview ? EntityPosition : FRTSEntities_EntityPosition();
+
+	if(URTSEntities_MarkerComponent* Marker = URTSEntities_MarkerComponent::FindMarkerComponent(GetOwner(), ERTSEntities_MarkerType::Preview))
+	{
+		Marker->UpdatePreview(ShowPreview);
+	}	
+}
+
+void URTSEntities_Entity::SetSpeedState(const ERTSCore_SpeedState& NewSpeedState) const
+{
+	if(const URTSEntities_EntityDataAsset* EntityData = GetEntityData())
+	{
+		switch (GetType())
+		{
+		case ERTSCore_EntityType::Character:
+			{
+			
+				if(const ACharacter* OwningCharacter = Cast<ACharacter>(GetActor()))
+				{
+					if(UCharacterMovementComponent* MovementComponent = OwningCharacter->GetCharacterMovement())
+					{
+						MovementComponent->MaxWalkSpeed = EntityData->GetStateSpeed(NewSpeedState);
+					}
+				}
+			}
+		case ERTSCore_EntityType::Vehicle:
+			{
+			
+			}
+		default: ;
+		}
+	}
+}
+
+void URTSEntities_Entity::SetStanceState(const ERTSCore_StanceState& NewStanceState) const
+{
+	switch (GetType())
+	{
+		case ERTSCore_EntityType::Character:
+		{			
+			if(IRTSCore_EntityInterface* EntityInterface = Cast<IRTSCore_EntityInterface>(GetActor()))
+			{				
+				switch (NewStanceState)
+				{
+					case ERTSCore_StanceState::Crouch:
+						EntityInterface->Crouch();
+						break;
+					case ERTSCore_StanceState::Prone:
+						EntityInterface->Crouch();
+						break;
+					default: EntityInterface->Stand();
+				}				
+			}
+		}
+		case ERTSCore_EntityType::Vehicle:
+		{
+			
+		}
+		default: ;
+	}
+}
+
+void URTSEntities_Entity::OnRep_NavigationDestination()
+{
+	if(IsLocalController())
+	{
+		if(URTSEntities_MarkerComponent* Marker = URTSEntities_MarkerComponent::FindMarkerComponent(GetOwner(), ERTSEntities_MarkerType::Destination))
+		{
+			Marker->DestinationUpdate();
+		}
+	}
+}
+
 void URTSEntities_Entity::SetFormation(const FPrimaryAssetId NewFormation)
 {
 	if(HasAuthority())
@@ -871,6 +1102,34 @@ FVector URTSEntities_Entity::GetFormationOffset() const
 
 	return FVector(0.f, 1.f, 0.f);
 }
+
+
+
+void URTSEntities_Entity::OnBehaviourStateChange(const ERTSCore_BehaviourState& NewState)
+{
+	switch (NewState)
+	{
+	case ERTSCore_BehaviourState::Stealth:
+			SetStanceState(ERTSCore_StanceState::Crouch);
+			SetSpeedState(ERTSCore_SpeedState::Crouch);
+			break;
+		case ERTSCore_BehaviourState::Safe:	
+			SetStanceState(ERTSCore_StanceState::Standing);
+			SetSpeedState(ERTSCore_SpeedState::Run);	
+			break;
+		case ERTSCore_BehaviourState::Cautious:	
+			SetStanceState(ERTSCore_StanceState::Standing);
+			SetSpeedState(ERTSCore_SpeedState::Walk);	
+			break;
+		case ERTSCore_BehaviourState::Combat:		
+			SetStanceState(ERTSCore_StanceState::Standing);
+			SetSpeedState(ERTSCore_SpeedState::Sprint);
+			break;
+		default: ;
+	}
+}
+
+
 
 bool URTSEntities_Entity::HasAuthority() const
 {

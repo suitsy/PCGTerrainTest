@@ -153,12 +153,20 @@ FPrimaryAssetId FRTSEntities_PlayerSelections::GetNextFormation(const float Inpu
 
 ARTSEntities_Group* FRTSEntities_PlayerSelections::GetLeadGroup() const
 {
-	if(IsValid())
+	if(IsValid() && Selections.IsValidIndex(LeadSelectionIndex))
 	{
 		return Selections[LeadSelectionIndex].Group;
 	}
 
 	return nullptr;
+}
+
+void FRTSEntities_CommandData::ApplyClientData(const FRTSEntities_ClientCommandData& ClientData)
+{
+	TargetTransform = ClientData.TargetTransform;
+	CommandType = ClientData.CommandType;
+	HasNavigation = ClientData.HasNavigation;
+	BehaviourState = ClientData.BehaviourState;
 }
 
 void FRTSEntities_CommandData::SetSelected(const FRTSEntities_PlayerSelections& InSelected)

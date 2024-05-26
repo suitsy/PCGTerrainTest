@@ -44,7 +44,7 @@ void URTSEntities_SelectedDecalComponent::OnRegister()
 			EntityComponent->OnSelectedChange.AddUObject(this, &ThisClass::UpdateSelected);
 
 			const FVector EntityExtent = EntityComponent->GetExtent();
-			const float MaxRadius = FMath::Max(EntityExtent.X, EntityExtent.Y) * EntityComponent->GetSelectionDecalSize();
+			const float MaxRadius = FMath::Max(EntityExtent.X, EntityExtent.Y) * EntityComponent->GetSelectionMarkerSize();
 			DecalSize = FVector(EntityExtent.Z, MaxRadius, MaxRadius);
 			SetRelativeRotation(FRotator(90.f, 0.f,0.f));
 

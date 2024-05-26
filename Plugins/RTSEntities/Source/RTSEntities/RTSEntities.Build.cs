@@ -31,7 +31,8 @@ public class RTSEntities : ModuleRules
 				"RTSCore", 
 				"NavigationSystem", 
 				"RTSAi", 
-				"RogueQuery"
+				"RogueQuery", 
+				"Niagara"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
