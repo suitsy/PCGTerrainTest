@@ -4,7 +4,6 @@
 #include "Framework/AI/RTSEntities_AIControllerCharacter.h"
 #include "Framework/Entities/Components/RTSEntities_Entity.h"
 #include "Framework/Data/RTSEntities_GroupDataAsset.h"
-#include "Framework/Entities/Group/RTSEntities_Group.h"
 #include "Navigation/CrowdFollowingComponent.h"
 
 
@@ -12,7 +11,6 @@ ARTSEntities_AIControllerCharacter::ARTSEntities_AIControllerCharacter(const FOb
 {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
-	CurrentWaypointIndex = -1;
 }
 
 void ARTSEntities_AIControllerCharacter::Tick(float DeltaTime)
@@ -215,23 +213,19 @@ void ARTSEntities_AIControllerCharacter::HandleWaypointApproach()
 bool ARTSEntities_AIControllerCharacter::HandleArrivalAtDestination() const
 {
 	if(GetPawn())
-	{
-		if(EntityComponent != nullptr)
+	{		
+		if(EntityPosition.IsValid())
 		{
-			if(const ARTSEntities_Group* EntityGroup = Cast<ARTSEntities_Group>(EntityComponent->GetGroup()))
-			{			
-				const FRotator LookAtRotation =  EntityGroup->GetOrientation();
-				const FRotator CurrentRot = FMath::RInterpConstantTo(GetPawn()->GetActorRotation(), LookAtRotation, GetWorld()->GetDeltaSeconds(), 2.f);
-				GetPawn()->SetActorRotation(CurrentRot);
-			
-				FRotator DeltaRotation = LookAtRotation - GetPawn()->GetActorRotation();
-				DeltaRotation.Normalize();
-				if(FMath::Abs(DeltaRotation.Yaw) < 0.5f)
-				{
-					return true;
-				}			
-			}
-		}
+			const FRotator CurrentRot = FMath::RInterpConstantTo(GetPawn()->GetActorRotation(), EntityPosition.Rotation, GetWorld()->GetDeltaSeconds(), 2.f);
+			GetPawn()->SetActorRotation(CurrentRot);
+		
+			FRotator DeltaRotation = EntityPosition.Rotation - GetPawn()->GetActorRotation();
+			DeltaRotation.Normalize();
+			if(FMath::Abs(DeltaRotation.Yaw) < 0.5f)
+			{
+				return true;
+			}			
+		}		
 	}
 
 	return false;

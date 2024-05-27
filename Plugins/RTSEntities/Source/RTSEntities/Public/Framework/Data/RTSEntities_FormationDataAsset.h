@@ -61,6 +61,6 @@ protected:
 	void CreateEntityPositions(FRTSEntities_Navigation& Navigation, const int32 Index) const; 
 	static void AssignEntityPositions(FRTSEntities_FormationPosition& Position);
 	void UpdateEntityPositions(FRTSEntities_Navigation& Navigation, const int32 Index) const;
-	virtual void GenerateFormationReferencePaths(FRTSEntities_Navigation& Navigation) const;
-	
+	void GenerateFormationReferencePaths(FRTSEntities_Navigation& Navigation) const;
+	static const URTSEntities_FormationDataAsset* GetFormationAsset(const EFormationType& Type);
 };

@@ -71,6 +71,7 @@ public:
 	virtual ERTSEntities_SelectionMarkerType GetMarkerType();
 	virtual void CreateMarkerComponents();
 	virtual float GetSelectionMarkerSize() const;
+	virtual float GetMarkerHeight() const;
 	virtual UMaterialInstance* GetSelectionMaterial() const;
 	virtual UMaterialInstance* GetDestinationMaterial() const;
 	virtual UNiagaraSystem* GetSelectionNiagaraSystem() const;

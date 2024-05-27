@@ -9,7 +9,7 @@
 
 URTSEntities_MarkerComponent::URTSEntities_MarkerComponent(const FObjectInitializer& ObjectInitializer):
 	Super(ObjectInitializer),
-	Visibility(0), Type(ERTSEntities_MarkerType::NoMarker), EntityComponent(nullptr)
+	Visibility(0), Preview(0), Type(ERTSEntities_MarkerType::NoMarker), EntityComponent(nullptr)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	bAutoActivate = false;
@@ -106,7 +106,7 @@ void URTSEntities_MarkerComponent::OnRegister()
 		}		
 
 		SetFloatParameter(FName(TEXT("Size")), EntityComponent->GetSelectionMarkerSize());
-		SetFloatParameter(FName(TEXT("Height")), 5.f);	
+		SetFloatParameter(FName(TEXT("Height")), EntityComponent->GetMarkerHeight());	
 	}
 
 	SetVisibility(false);

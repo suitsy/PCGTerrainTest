@@ -68,9 +68,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Selection|Marker", meta=(EditCondition = "SelectionMarkerType == ERTSEntities_SelectionMarkerType::NiagaraSystem", EditConditionHides))
 	TSoftObjectPtr<UNiagaraSystem> NiagaraSystemDestination;
 
-	/** Decal size is determined by entity collision, use the modifier to adjust decal size, size is multiplied by this modifier **/
+	/** Size of the marker radius **/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Selection")
 	float SelectionMarkerRadius = 150.f;
+
+	/** Height of the entity markers from the terrain **/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Selection")
+	float MarkerWorldOffset = 10.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Command")
 	TSoftObjectPtr<UMaterialInstance> CommandDestinationMaterial;

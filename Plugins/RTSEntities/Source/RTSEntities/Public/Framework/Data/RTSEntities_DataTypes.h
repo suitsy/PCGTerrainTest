@@ -303,6 +303,7 @@ public:
 		Rotation(FRotator::ZeroRotator),
 		GroupSpacing(0.f),
 		EntitySpacing(0.f),
+		FormationThreshold(1000.f),
 		Positions(TArray<FRTSEntities_FormationPosition>{}),
 		Offset(FVector::ZeroVector)
 	{}
@@ -311,6 +312,7 @@ public:
 		const FPrimaryAssetId& InFormationId,
 		const float InGroupSpacing,
 		const float InEntitySpacing,
+		const float InFormationThreshold,
 		const FVector& InLocation,
 		const FRotator& InRotation
 	): 	
@@ -318,7 +320,8 @@ public:
 		Location(InLocation),
 		Rotation(InRotation),
         GroupSpacing(InGroupSpacing),
-        EntitySpacing(InEntitySpacing),
+		EntitySpacing(InEntitySpacing),
+		FormationThreshold(InFormationThreshold),
 		Positions(TArray<FRTSEntities_FormationPosition>{}),
         Offset(FVector::ZeroVector)
 	{}
@@ -337,6 +340,9 @@ public:
 
 	UPROPERTY()
 	float EntitySpacing;
+
+	UPROPERTY()
+	float FormationThreshold;
 	
 	UPROPERTY()
 	TArray<FRTSEntities_FormationPosition> Positions;

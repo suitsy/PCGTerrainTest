@@ -96,6 +96,7 @@ void ARTSEntities_AiControllerCommand::ExecuteCommand(URTSEntities_Command* Comm
 
 		// Assign new command as active
 		ActiveCommand = Command;
+		ActiveCommand->EntityStatus = ERTSEntities_CommandStatus::Active;
 
 		if(ActiveCommand != nullptr)
 		{
@@ -164,22 +165,26 @@ void ARTSEntities_AiControllerCommand::AbortNavigation()
 }
 
 void ARTSEntities_AiControllerCommand::CompleteCurrentCommand(const ERTSEntities_CommandStatus Status)
-{	
-	switch (Status)
-	{
-		case ERTSEntities_CommandStatus::Aborted:
-			AbortNavigation();
-			break;
-	case ERTSEntities_CommandStatus::Updating:
-			CreateTransitionWaypoint(ERTSEntities_WaypointType::Start);
-			break;
-		default: ;
-	}
-
+{
 	// Report to group entity command completed
 	FGuid CurrentCommandId = FGuid();
-	if(ActiveCommand)
+	if(ActiveCommand != nullptr)
 	{
+		ActiveCommand->EntityStatus = Status;
+		switch (Status)
+		{
+			case ERTSEntities_CommandStatus::Completed:
+				ResetWaypoints();				
+				break;
+			case ERTSEntities_CommandStatus::Aborted:
+				AbortNavigation();
+				break;
+			case ERTSEntities_CommandStatus::Updating:
+				CreateTransitionWaypoint(ERTSEntities_WaypointType::Start);
+				break;
+			default: ;
+		}
+		
 		CurrentCommandId = ActiveCommand->GetId();
 		ActiveCommand = nullptr;
 	}
@@ -265,100 +270,104 @@ bool ARTSEntities_AiControllerCommand::NavigationIsValid()
 void ARTSEntities_AiControllerCommand::GenerateEntityFormationPath(FRTSEntities_FormationPosition& FormationPosition, TArray<FVector>& EntityPathPoints)
 {
 	if(NavigationIsValid())
-	{			
-		// Generate an offset path for this entity using the guide path
+	{	
+		/** Check if we need to follow the complete formation offset path **/
 		TArray<FVector> FormationPathPoints;
-		FVector OffsetLocation = FVector::ZeroVector;
-		FVector NextOffsetLocation = FVector::ZeroVector;
 		FVector DestinationOffsetLocation = FVector::ZeroVector;		
-		FVector StartLocation = FormationPosition.ReferencePathPoints.IsValidIndex(0) ? FormationPosition.ReferencePathPoints[0] : GetPawn()->GetActorLocation();
-		const bool bHasExistingNavigation = Waypoints.Num() > 0;
-		float DestinationDirectDistance = MAX_FLT;
-		
-		// Create the formation part of the path 
-		for (int i = 0; i < FormationPosition.ReferencePathPoints.Num() - 1; ++i)
+		FVector StartLocation = GetPawn()->GetActorLocation();
+			const bool bHasExistingNavigation = Waypoints.Num() > 0;
+
+		// Get the offset destination for this entity
+		if(FormationPosition.ReferencePathPoints.IsValidIndex(FormationPosition.ReferencePathPoints.Num() - 1))
 		{
-			// Check we have a valid reference point for the current point and the next point
-			if(!FormationPosition.ReferencePathPoints.IsValidIndex(i) || !FormationPosition.ReferencePathPoints.IsValidIndex(i + 1))
-			{
-				continue;
-			}
-
-			const bool bIsLastPoint = (i == FormationPosition.ReferencePathPoints.Num() - 2);
-
-			// Check if this is the first location		
-			if(i == 0)
-			{
-				// Calculate the initial offset location				
-				CalculateOffsetLocation(
-					StartLocation,
-					FRotationMatrix::MakeFromX(FormationPosition.ReferencePathPoints[i] - GetPawn()->GetActorLocation()).Rotator(),
-					OffsetLocation,
-					FormationPosition.Offset
-				);
-
-				StartLocation = OffsetLocation;
-
-				if(FormationPosition.ReferencePathPoints.IsValidIndex(FormationPosition.ReferencePathPoints.Num() - 1))
-				{
-					// Calculate the destination offset location
-					CalculateOffsetLocation(
-						FormationPosition.ReferencePathPoints[FormationPosition.ReferencePathPoints.Num() - 1],
-						FormationPosition.Rotation,
-						DestinationOffsetLocation,
-						FormationPosition.Offset
-					);
-
-					DestinationDirectDistance = (StartLocation - DestinationOffsetLocation).Length();
-				}
-			}
-
-			if(bIsLastPoint)
-			{
-				NextOffsetLocation = DestinationOffsetLocation;
-			}
-			else
-			{
-				// Calculate the next location
-				const FRotator PointRotation = bIsLastPoint
-				? FormationPosition.Rotation
-				: FRotationMatrix::MakeFromX(FormationPosition.ReferencePathPoints[i + 1] - OffsetLocation).Rotator();
+			// Calculate the destination offset location
+			CalculateOffsetLocation(
+				FormationPosition.ReferencePathPoints[FormationPosition.ReferencePathPoints.Num() - 1],
+				FormationPosition.Rotation,
+				DestinationOffsetLocation,
+				FormationPosition.Offset
+			);
+		}
 				
-				CalculateOffsetLocation(
-					FormationPosition.ReferencePathPoints[i + 1],
-					PointRotation,
-					NextOffsetLocation,
-					FormationPosition.Offset
-				);
-				
-				// If dist to next point from the source is longer than distance to destination skip the point
-				if((StartLocation - NextOffsetLocation).Length() > DestinationDirectDistance)
+		// Generate a path from the entities location to the offset destination
+		const UNavigationPath* DirectPath = GetNavSystemChecked()->FindPathToLocationSynchronously(GetWorld(), GetPawn()->GetActorLocation(), DestinationOffsetLocation, GetPawn());
+		if(DirectPath->GetPathLength() < NavigationData.FormationThreshold)
+		{
+			FormationPathPoints.Append(DirectPath->PathPoints);
+		}
+
+		/** Generate an offset path for this entity using the guide path if direct route not used **/
+		if(FormationPathPoints.Num() <= 0)
+		{
+			FVector OffsetLocation = FVector::ZeroVector;
+			FVector NextOffsetLocation = FVector::ZeroVector;
+		
+			// Create the formation part of the path (excluding from the entity to the form up point)
+			for (int i = 0; i < FormationPosition.ReferencePathPoints.Num() - 1; ++i)
+			{
+				// Check we have a valid reference point for the current point and the next point
+				if(!FormationPosition.ReferencePathPoints.IsValidIndex(i) || !FormationPosition.ReferencePathPoints.IsValidIndex(i + 1))
 				{
 					continue;
 				}
-			}			
+
+				const bool bIsLastPoint = (i == FormationPosition.ReferencePathPoints.Num() - 2);
+
+				// Check if this is the first location		
+				if(i == 0)
+				{
+					// Calculate the initial offset location				
+					CalculateOffsetLocation(
+						StartLocation,
+						FRotationMatrix::MakeFromX(FormationPosition.ReferencePathPoints[i] - GetPawn()->GetActorLocation()).Rotator(),
+						OffsetLocation,
+						FormationPosition.Offset
+					);
+
+					StartLocation = OffsetLocation;
+				}
+
+				if(bIsLastPoint)
+				{
+					NextOffsetLocation = DestinationOffsetLocation;
+				}
+				else
+				{
+					// Calculate the next location
+					const FRotator PointRotation = bIsLastPoint
+					? FormationPosition.Rotation
+					: FRotationMatrix::MakeFromX(FormationPosition.ReferencePathPoints[i + 1] - OffsetLocation).Rotator();
+				
+					CalculateOffsetLocation(
+						FormationPosition.ReferencePathPoints[i + 1],
+						PointRotation,
+						NextOffsetLocation,
+						FormationPosition.Offset
+					);
+				}			
 	
-			// To ensure navigation between new offset points generate the path segment between the two new offset points
-			TArray<FVector> SegmentNavPoints = GetNavSystemChecked()->FindPathToLocationSynchronously(GetWorld(), OffsetLocation, NextOffsetLocation, GetPawn())->PathPoints;
+				// To ensure navigation between new offset points generate the path segment between the two new offset points
+				TArray<FVector> SegmentNavPoints = GetNavSystemChecked()->FindPathToLocationSynchronously(GetWorld(), OffsetLocation, NextOffsetLocation, GetPawn())->PathPoints;
 
-			// Set the next location to the current location for next point check
-			OffsetLocation = NextOffsetLocation;
+				// Set the next location to the current location for next point check
+				OffsetLocation = NextOffsetLocation;
 			
-			// Ensure offset start position is included 
-			/** Combine navigation points into a single path
-			 *  For each segment we need to remove the last point as it will be the same as the next segments first point
-			 *  except where this is the last segment **/
-			if(SegmentNavPoints.Num() > 0 && i < FormationPosition.ReferencePathPoints.Num() - 2)
-			{
-				SegmentNavPoints.RemoveAt(SegmentNavPoints.Num() - 1);
-			}			
+				// Ensure offset start position is included 
+				/** Combine navigation points into a single path
+				 *  For each segment we need to remove the last point as it will be the same as the next segments first point
+				 *  except where this is the last segment **/
+				if(SegmentNavPoints.Num() > 0 && i < FormationPosition.ReferencePathPoints.Num() - 2)
+				{
+					SegmentNavPoints.RemoveAt(SegmentNavPoints.Num() - 1);
+				}			
 
-			// Add segment to path
-			FormationPathPoints.Append(SegmentNavPoints);
+				// Add segment to path
+				FormationPathPoints.Append(SegmentNavPoints);
+			}
 		}
 
 		/** Check if the formation path does not begin at the same location, add the navigation from entity to the beginning of formation path **/
-		if(FormationPosition.UseFormation && !bHasExistingNavigation && FormationPathPoints.IsValidIndex(0) && (FormationPathPoints[0] - GetPawn()->GetActorLocation()).Length() > 100.f)
+		if(FormationPosition.UseFormation && !bHasExistingNavigation && FormationPathPoints.IsValidIndex(0) && (FormationPathPoints[0] - GetPawn()->GetActorLocation()).Length() > 250.f)
 		{			
 			// Calculate a path from the pawns location to the start of the formation path
 			EntityPathPoints = GetNavSystemChecked()->FindPathToLocationSynchronously(GetWorld(), GetPawn()->GetActorLocation(), FormationPathPoints[0], GetPawn())->PathPoints;
@@ -864,10 +873,9 @@ bool ARTSEntities_AiControllerCommand::HasReachedDestination() const
 
 void ARTSEntities_AiControllerCommand::HandleWaypointNavigationComplete()
 {
-	if(NavigationData.IsValid() && HasEntityComponent())
+	if(HasEntityComponent())
 	{
-		SetCurrentWaypointComplete();
-		ResetWaypoints();
+		SetCurrentWaypointComplete();		
 
 		// Reset Entity Position
 		EntityComponent->SetNavigationDestination(GetPawn()->GetActorLocation());
@@ -906,18 +914,24 @@ void ARTSEntities_AiControllerCommand::HandleWaypointsUpdated()
 
 void ARTSEntities_AiControllerCommand::UpdateCurrentWaypointIndex(const int32 NewWaypointIndex)
 {
+	if(NewWaypointIndex == CurrentWaypointIndex)
+	{
+		return;
+	}
+	
 	CurrentWaypointIndex = NewWaypointIndex;
 	
 	// Check if the current waypoint is invalid and the state is still set to navigating
-	if(CurrentWaypointIndex == -1)
-	{
-		if(GetState(ERTSCore_StateCategory::Navigation) == static_cast<int32>(ERTSCore_NavigationState::Navigating))
+	/*if(CurrentWaypointIndex == -1 && ActiveCommand != nullptr)
+	{		
+		// End waypoint nav
+		if(ActiveCommand->EntityStatus != ERTSEntities_CommandStatus::Completed)
 		{
-			// End waypoint nav
 			HandleWaypointNavigationComplete();
 		}
-	}
-	else
+	}*/
+	
+	if(CurrentWaypointIndex != -1)
 	{
 		// Begin waypoint nav
 		BeginNavigatingCurrentWaypoint();

@@ -4,7 +4,7 @@
 #include "CommandSystem/RTSEntities_Command.h"
 #include "Framework/Entities/Group/RTSEntities_Group.h"
 
-URTSEntities_Command::URTSEntities_Command()
+URTSEntities_Command::URTSEntities_Command(): EntityStatus(ERTSEntities_CommandStatus::NoStatus)
 {
 }
 

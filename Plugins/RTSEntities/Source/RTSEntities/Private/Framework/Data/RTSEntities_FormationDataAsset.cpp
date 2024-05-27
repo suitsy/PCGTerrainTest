@@ -4,6 +4,8 @@
 #include "Framework/Data/RTSEntities_FormationDataAsset.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
+#include "Engine/AssetManager.h"
+#include "Framework/Data/RTSCore_StaticGameData.h"
 #include "Framework/Entities/Components/RTSEntities_Entity.h"
 #include "Framework/Entities/Group/RTSEntities_Group.h"
 
@@ -132,7 +134,10 @@ void URTSEntities_FormationDataAsset::CreateFormationPositions(FRTSEntities_Navi
 	FVector FormationOffset = Offset;
 	if(Selections.Num() <= 2 && Type != EFormationType::Column)
 	{
-		FormationOffset = FVector(0.f, 1.f, 0.f);
+		if(const URTSEntities_FormationDataAsset* AlternateFormation = GetFormationAsset(EFormationType::Line))
+		{
+			FormationOffset = AlternateFormation->Offset;
+		}		
 	}
 	
 	for (int i = 0; i < Selections.Num(); ++i)
@@ -304,7 +309,10 @@ void URTSEntities_FormationDataAsset::UpdateSelectionAssignedPositions(FRTSEntit
 		FVector LocalOffset = Offset;
 		if(Navigation.Positions.Num() <= 2 && Type != EFormationType::Column)
 		{
-			LocalOffset = FVector(0.f, 1.f, 0.f);
+			if(const URTSEntities_FormationDataAsset* AlternateFormation = GetFormationAsset(EFormationType::Line))
+			{
+				LocalOffset = AlternateFormation->Offset;
+			}		
 		}
 
 		// Get Spacing for this position
@@ -656,4 +664,30 @@ void URTSEntities_FormationDataAsset::GenerateFormationReferencePaths(FRTSEntiti
 			Navigation.Positions[i].ReferencePathPoints = NavSystem->FindPathToLocationSynchronously(World, FormUpPoint, Navigation.Positions[i].Destination, Navigation.Positions[i].Selection.Lead)->PathPoints;				
 		}
 	}	
+}
+
+const URTSEntities_FormationDataAsset* URTSEntities_FormationDataAsset::GetFormationAsset(const EFormationType& Type) 
+{
+	if(const UAssetManager* AssetManager = UAssetManager::GetIfInitialized())
+	{
+		TArray<FPrimaryAssetId> AllFormationDataAssets;
+		const FPrimaryAssetType FormationAssetType(RTS_DATA_ASSET_TYPE_FORMATION);	
+		AssetManager->GetPrimaryAssetIdList(FormationAssetType, AllFormationDataAssets);
+
+		for (int i = 0; i < AllFormationDataAssets.Num(); ++i)
+		{
+			if(AllFormationDataAssets[i].IsValid())
+			{
+				if(const URTSEntities_FormationDataAsset* FormationData = Cast<URTSEntities_FormationDataAsset>(AssetManager->GetPrimaryAssetObject(AllFormationDataAssets[i])))
+				{
+					if(FormationData->Type == Type)
+					{
+						return FormationData;
+					}
+				}
+			}			
+		}
+	}
+
+	return nullptr;
 }

@@ -370,6 +370,16 @@ float URTSEntities_Entity::GetSelectionMarkerSize() const
 	return 150.f;
 }
 
+float URTSEntities_Entity::GetMarkerHeight() const
+{
+	if(const URTSEntities_EntityDataAsset* Data = GetEntityData())
+	{
+		return Data->MarkerWorldOffset;
+	}
+
+	return 10.f;
+}
+
 UMaterialInstance* URTSEntities_Entity::GetSelectionMaterial() const
 {
 	if(const URTSEntities_EntityDataAsset* Data = GetEntityData())

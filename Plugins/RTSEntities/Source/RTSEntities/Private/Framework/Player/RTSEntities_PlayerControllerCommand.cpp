@@ -409,6 +409,7 @@ void ARTSEntities_PlayerControllerCommand::GetCommandNavigationData(FRTSEntities
 				EntityComponent->GetFormation(),
 				EntityComponent->GetGroupSpacing(),
 				EntityComponent->GetEntitySpacing(),
+				EntityComponent->GetFormationThreshold(),
 				CommandData.GetLocation(),
 				CommandData.GetRotation()
 			);

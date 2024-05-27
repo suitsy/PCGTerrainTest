@@ -66,6 +66,9 @@ public:
 	
 	UPROPERTY()
 	FRTSEntities_CommandData Data;
+
+	UPROPERTY()
+	ERTSEntities_CommandStatus EntityStatus;
 	
 protected:	
 	virtual bool Valid() const;
